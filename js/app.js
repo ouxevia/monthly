@@ -194,18 +194,29 @@ async function boot() {
   if (last) S.data.settings = last.settings;
   applyTheme();
   render();
+  // 서버가 느리거나 장애일 때 "불러오는 중"에 멈추지 않도록 10초 뒤 로그인 화면으로
+  const slow = setTimeout(() => {
+    if (S.phase !== 'boot') return;
+    S.loginError = '동기화 서버(Supabase)에 연결이 늦어지고 있어요. 잠시 후 새로고침하거나, 아래에서 이 기기에 먼저 써 두세요.';
+    S.phase = 'login';
+    render();
+  }, 10000);
   try {
     const { initCloud } = await import('./cloud.js');
     S.cloud = await initCloud(supabaseConfig, { onUser, onRemote, onError: onCloudError, onRecovery });
   } catch (err) {
     console.error('[supabase]', err);
-    S.loginError = '동기화 서버(Supabase)에 연결하지 못했어요. 설정값과 인터넷 연결을 확인하세요.';
-    S.phase = 'login';
+    S.loginError = '동기화 서버(Supabase)에 연결하지 못했어요. 인터넷 연결을 확인하거나 잠시 후 새로고침하세요. (' + (err.message || err) + ')';
+    if (S.phase === 'boot') S.phase = 'login';
     render();
   }
+  clearTimeout(slow);
 }
 
 function onUser(user) {
+  // 로그인 없이 이 기기에서 쓰는 중이면 그대로 둠
+  if (!user && S.offline) { render(); return; }
+  if (user) S.offline = false;
   if (!user) {
     S.user = null;
     S.base = null;
@@ -357,6 +368,7 @@ function viewLogin() {
        </div>` : ''}
        <button class="btn btn-lg btn-primary" data-act="${signup ? 'signup' : 'login'}"${L.busy ? ' disabled' : ''}>${L.busy ? '잠시만요…' : signup ? '가입하고 시작하기' : '로그인'}</button>
        ${L.info ? `<p class="hint small center">${esc(L.info)}</p>` : ''}
+       ${S.loginError && (!S.cloud || /서버/.test(S.loginError)) ? '<div class="row-wrap" style="justify-content:center"><button class="btn btn-sm" data-act="reload">새로고침</button><button class="btn btn-sm" data-act="start-local">로그인 없이 이 기기에서 쓰기</button></div>' : ''}
        ${signup ? '<p class="hint small center">폰 · 패드 · 노트북에서 같은 이메일과 비밀번호로 로그인하면 플래너가 동기화돼요.</p>'
          : '<button class="link-btn" data-act="forgot-pw" style="align-self:center">비밀번호를 잊었어요</button>'}`;
   }
@@ -744,6 +756,7 @@ function viewAccountModal() {
       </div>
     </div>
     ${cloud ? '<button class="btn danger" data-act="logout">로그아웃</button>' : ''}
+    ${S.mode === 'cloud' && !user ? '<button class="btn btn-primary" data-act="go-login">로그인해서 동기화하기</button>' : ''}
   </div>`;
 }
 
@@ -783,6 +796,14 @@ const actions = {
     }, (err) => /already/i.test(err.message || '') ? '이미 가입된 이메일이에요. 로그인 탭에서 로그인하세요.'
       : '가입하지 못했어요. (' + (err.message || err) + ')');
   },
+  reload: () => location.reload(),
+  'go-login': () => {
+    S.offline = false;
+    S.ui.modal = null;
+    S.phase = 'login';
+    S.loginError = S.cloud ? '' : '동기화 서버에 아직 연결되지 않았어요. 새로고침 후 다시 시도해 주세요.';
+    render();
+  },
   'login-mode': (el) => { S.login = { mode: el.dataset.mode, email: currentEmail(), busy: false, info: '' }; S.loginError = ''; render(); },
   'forgot-pw': async () => {
     const email = currentEmail();
@@ -793,6 +814,16 @@ const actions = {
     }, (err) => '메일을 보내지 못했어요. (' + (err.message || err) + ')');
   },
   'start-local': () => {
+    if (S.mode === 'cloud') {
+      // 서버 설정은 돼 있지만 지금은 로그인 없이 이 기기에만 저장 (나중에 첫 로그인 때 계정으로 옮겨짐)
+      S.offline = true;
+      S.scope = 'local';
+      S.data = loadLocal('local') || S.data;
+      applyTheme();
+      S.phase = 'app';
+      render();
+      return;
+    }
     try { localStorage.setItem(LOCAL_STARTED_KEY, '1'); } catch (e) { /* 무시 */ }
     S.phase = 'app';
     render();
@@ -998,7 +1029,9 @@ async function loginTask(fn, message) {
     await fn();
   } catch (err) {
     console.error(err);
-    S.loginError = message(err);
+    S.loginError = /fetch|network|load failed/i.test(err.message || '')
+      ? '서버에 연결할 수 없어요. (Supabase 장애이거나 인터넷 문제) 잠시 후 다시 시도하거나, 로그인 없이 먼저 써 두세요.'
+      : message(err);
   }
   S.login.busy = false;
   if (S.phase === 'login') render();
@@ -1178,4 +1211,5 @@ function bindDrag() {
   document.addEventListener('pointercancel', cleanup);
 }
 
+window.__examMonthlyStarted = true;
 boot();

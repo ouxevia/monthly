@@ -5,16 +5,29 @@
 // 다른 기기의 변경은 Realtime 알림을 받으면 다시 읽어 옵니다.
 // 테이블 · 함수 · 보안 규칙은 supabase.sql 참고.
 
-const SDK = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/+esm';
+// supabase-js (MIT) 를 저장소에 같이 넣어 둠: 외부 CDN이 막히거나 느려도 동작하도록
+const SDK = new URL('./vendor/supabase-2.116.0.js', import.meta.url).href;
+
+function loadSdk() {
+  if (window.supabase && window.supabase.createClient) return Promise.resolve(window.supabase);
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = SDK;
+    el.onload = () => (window.supabase ? resolve(window.supabase) : reject(new Error('supabase-js를 불러오지 못했어요')));
+    el.onerror = () => reject(new Error('supabase-js를 불러오지 못했어요'));
+    document.head.appendChild(el);
+  });
+}
 
 export async function initCloud(config, { onUser, onRemote, onError, onRecovery }) {
-  const { createClient } = await import(SDK);
+  const { createClient } = await loadSdk();
   const sb = createClient(config.url, config.anonKey, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' },
   });
 
   let uid = null;
   let channel = null;
+  let announced = false; // 첫 상태(로그인 안 됨 포함)는 꼭 한 번 알려야 화면이 넘어감
 
   async function fetchDoc() {
     if (!uid) return;
@@ -25,7 +38,8 @@ export async function initCloud(config, { onUser, onRemote, onError, onRecovery 
 
   function setUser(user) {
     const next = user ? user.id : null;
-    if (next === uid) return;
+    if (announced && next === uid) return;
+    announced = true;
     if (channel) { sb.removeChannel(channel); channel = null; }
     uid = next;
     onUser(user ? { uid: user.id, displayName: '', email: user.email || '', photoURL: '' } : null);
