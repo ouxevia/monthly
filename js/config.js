@@ -6,8 +6,8 @@
 //
 // 비워 두면 로그인 없이 "이 기기에만 저장" 모드로 동작합니다.
 export const supabaseConfig = {
-  url: '',     // 예: 'https://abcdefghijklmn.supabase.co'
-  anonKey: '', // 예: 'eyJhbGciOi...' (anon public 키) 또는 'sb_publishable_...'
+  url: 'https://xelwmluwcisilzxqupbr.supabase.co',
+  anonKey: 'sb_publishable_SVIcvOgd3HN4Ux1Ywy812Q_QTQwGG2F', // 공개용(publishable) 키
 };
 
 export const isCloudConfigured = Boolean(supabaseConfig.url && supabaseConfig.anonKey);

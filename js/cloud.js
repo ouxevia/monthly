@@ -5,7 +5,7 @@
 // 다른 기기의 변경은 Realtime 알림을 받으면 다시 읽어 옵니다.
 // 테이블 · 함수 · 보안 규칙은 supabase.sql 참고.
 
-const SDK = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
+const SDK = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/+esm';
 
 export async function initCloud(config, { onUser, onRemote, onError, onRecovery }) {
   const { createClient } = await import(SDK);
