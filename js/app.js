@@ -546,7 +546,8 @@ function fitCalendar() {
   }
   const legend = document.querySelector('.legend');
   const below = (legend ? legend.offsetHeight : 20) + 40;
-  const min = 165; // 할 일 7줄
+  const chipH = parseFloat(getComputedStyle(cal).getPropertyValue('--chip-h')) || 16;
+  const min = Math.ceil(24 + 3 + 7 * chipH + 6 * 2 + 14); // 할 일 7줄이 항상 보이는 높이
   const h = Math.max(min, Math.floor((window.innerHeight - top - head - below) / rows));
   cal.style.setProperty('--row-h', h + 'px');
 }
