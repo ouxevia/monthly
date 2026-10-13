@@ -448,3 +448,29 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
   .set-tab { min-height: 38px; padding: 0 10px; font-size: calc(13px * var(--k)); }
   .settings-modal { height: calc(100vh - 32px); }
 }
+
+/* ---------- 한 줄 헤더 ---------- */
+.top { align-items: center; padding-top: 6px; }
+.top .title-row { flex: 1 1 560px; min-width: 0; }
+.top-right { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.top-right .account-pill { align-self: auto; }
+.month-nav { flex-direction: row; align-items: center; gap: 2px; margin-right: 6px; }
+.month-nav .year-text { min-width: 64px; font-size: calc(22px * var(--k)); }
+.nav-arrow { width: 40px; height: 40px; border: 1px solid var(--btn-line); border-radius: 50%; background: var(--btn-bg); color: var(--btn-ink); }
+.nav-arrow:hover { background: var(--btn-hover); }
+.month-nav .today-link { margin-left: 4px; font-size: calc(13px * var(--k)); }
+@media (max-width: 900px) { .top-right { width: 100%; justify-content: flex-start; } }
+
+/* ---------- 관리자에게 문의 ---------- */
+.contact-text { min-height: 140px; resize: vertical; line-height: 1.6; font-family: inherit; }
+.cat-chip.on { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+.notice-ok { color: #2E7D4F; background: rgba(63, 164, 106, 0.12); }
+body.dark .notice-ok { color: #8FD6A8; }
+.fb-row { border: 1px solid var(--mline); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.fb-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.fb-cat { font-weight: 700; }
+.fb-state { margin-left: auto; font-size: 12px; color: var(--hint); }
+.fb-state.done { color: #2E7D4F; }
+.fb-msg { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fb-reply { font-size: 14px; white-space: pre-wrap; background: var(--soft); border-radius: 8px; padding: 10px 12px; overflow-wrap: anywhere; }
+.fb-reply b { display: block; font-size: 12px; color: var(--label); margin-bottom: 4px; }
