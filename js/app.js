@@ -1,4 +1,4 @@
-import { THEMES, THEME_GROUPS, STYLES, FONTS, MONTH_NAMES, WEEKDAYS, WEEKDAYS_KO, holidayOf, inkOn } from './data.js';
+import { THEMES, THEME_GROUPS, STYLES, FONTS, MONTH_NAMES, WEEKDAYS, WEEKDAYS_KO, holidayOf, inkOn, makePair, buildCustomTheme } from './data.js';
 import { supabaseConfig, isCloudConfigured } from './config.js';
 import { defaultData, normalize, loadLocal, saveLocal, toPlain, newId, deviceId, deviceName, toRemote, fromRemote, diffRemote, applyOps } from './store.js';
 
@@ -82,7 +82,22 @@ const ICON = {
 // ---------------------------------------------------------------- 테마
 
 const settings = () => S.data.settings;
-const curTheme = () => THEMES.find((t) => t.id === settings().themeId) || THEMES[0];
+// 사용자가 만든 팔레트는 settings.customThemes 에 JSON 문자열로 저장 (동기화 비교가 간단하도록)
+function customPalettes() {
+  try {
+    const list = JSON.parse(settings().customThemes || '[]');
+    return Array.isArray(list) ? list.filter((p) => p && p.id) : [];
+  } catch (e) {
+    return [];
+  }
+}
+function saveCustomPalettes(list) { settings().customThemes = JSON.stringify(list); }
+const allThemes = () => customPalettes().map(buildCustomTheme).concat(THEMES);
+const findTheme = (id) => allThemes().find((t) => t.id === id) || null;
+const curTheme = () => findTheme(settings().themeId) || THEMES[0];
+// 색 개수가 테마마다 달라서 순번은 항상 나머지로 맞춤
+const tc = (th, i) => th.c[((i % th.c.length) + th.c.length) % th.c.length];
+const abbrOf = (s) => (s ? (s.abbr || Array.from(s.name || '')[0] || '') : '');
 const curStyle = () => STYLES.find((s) => s.id === settings().styleId) || STYLES[2];
 const curFont = () => FONTS.find((f) => f.id === settings().fontId) || FONTS[0];
 const isNight = () => curStyle().id === 'night';
@@ -90,7 +105,7 @@ const isNight = () => curStyle().id === 'night';
 function colorOf(subjectId) {
   const s = byId(S.data.subjects, subjectId);
   if (!s) return ['', '#E4E2DE', '#77736C'];
-  return curTheme().c[s.color % 8];
+  return tc(curTheme(), s.color);
 }
 
 function applyTheme() {
@@ -104,8 +119,8 @@ function applyTheme() {
   set('--sun', st.sun); set('--sat', st.sat); set('--circle', st.circle);
   set('--today-bg', st.todayBg); set('--today-badge', st.todayBadge); set('--today-fg', st.todayFg);
   set('--font', f.family); set('--k', f.scale); set('--chip-fs', f.chip + 'px');
-  set('--accent-light', th.c[0][1]); set('--accent-deep', th.c[0][2]); set('--month-on', th.c[3][1]); set('--month-on-ink', inkOn(th.c[3][1]));
-  set('--drop', th.c[3][1]);
+  set('--accent-light', tc(th, 0)[1]); set('--accent-deep', tc(th, 0)[2]); set('--month-on', tc(th, 3)[1]); set('--month-on-ink', inkOn(tc(th, 3)[1]));
+  set('--drop', tc(th, 3)[1]);
   document.body.className = 'st-' + st.id + (st.dark ? ' dark' : '');
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', st.dark ? '#1E2230' : '#FDFCF9');
@@ -349,7 +364,7 @@ function viewLogin() {
   let cells = '';
   for (let i = 0; i < 21; i++) {
     const on = i % 5 === 1 || i % 7 === 4;
-    cells += `<span style="background:${on ? th.c[i % 8][1] : 'var(--login-cell)'}"></span>`;
+    cells += `<span style="background:${on ? tc(th, i)[1] : 'var(--login-cell)'}"></span>`;
   }
   const L = S.login;
   let body;
@@ -560,7 +575,7 @@ function viewChip(t) {
   const bg = t.done ? col[2] : col[1];
   return `<div class="chip${t.done ? ' done' : ''}" data-id="${t.id}" style="background:${bg};color:${inkOn(bg)}" title="${esc(label)}">
     <button class="chip-check" data-act="toggle-done" data-id="${t.id}" aria-label="${esc(label)} ${t.done ? '완료 취소' : '완료로 표시'}" aria-pressed="${t.done}">${t.done ? ICON.check : ''}</button>
-    <button class="chip-text" data-act="open-todo" data-id="${t.id}">${book ? `<b>${esc(book.name)}</b> ` : ''}${esc(t.text || (subject ? subject.name : ''))}</button>
+    <button class="chip-text" data-act="open-todo" data-id="${t.id}">${subject && settings().showAbbr !== false ? `<span class="abbr">(${esc(abbrOf(subject))})</span> ` : ''}${book ? `<b>${esc(book.name)}</b> ` : ''}${esc(t.text || (subject ? subject.name : ''))}</button>
   </div>`;
 }
 
@@ -572,7 +587,11 @@ const SHEET_H = 794;  // A4 세로 210mm
 function viewPrintSheet() {
   const { year: y, month: m } = S.ui;
   // 나이트모드는 인쇄하면 잉크가 많이 들어서 흰 배경(심플)으로 출력
-  const st = isNight() ? STYLES.find((x) => x.id === 'simple') : curStyle();
+  // 글씨만 버전: 형광펜(색 배경) 없이 흑백으로
+  const mono = S.ui.exportMode === 'mono';
+  const st = mono
+    ? { id: 'simple', ink: '#1F1F1F', sub: '#666666', line: '#B5B5B5', outer: '1px solid #8A8A8A', cellBg: '#FFFFFF', headBg: '#F4F4F4', radius: 0, sun: '#1F1F1F', sat: '#1F1F1F', circle: 0 }
+    : isNight() ? STYLES.find((x) => x.id === 'simple') : curStyle();
   const exams = S.data.exams.slice().sort((a, b) => (a.date < b.date ? -1 : 1));
   const nearest = (k) => exams.find((e) => e.date >= k) || null;
   const first = new Date(y, m - 1, 1).getDay();
@@ -607,7 +626,9 @@ function viewPrintSheet() {
         const col = colorOf(t.subjectId);
         const book = byId(S.data.books, t.bookId);
         const subject = byId(S.data.subjects, t.subjectId);
-        return `<div class="ps-chip" style="background:${t.done ? col[2] : col[1]};color:${inkOn(t.done ? col[2] : col[1])}"><span class="ps-check">${t.done ? '✓' : '○'}</span>${book ? `<b>${esc(book.name)}</b> ` : ''}${esc(t.text || (subject ? subject.name : ''))}</div>`;
+        const ab = subject && settings().showAbbr !== false ? `(${esc(abbrOf(subject))}) ` : '';
+        const look = mono ? 'background:transparent;color:#1F1F1F' : `background:${t.done ? col[2] : col[1]};color:${inkOn(t.done ? col[2] : col[1])}`;
+        return `<div class="ps-chip${mono ? ' mono' : ''}" style="${look}"><span class="ps-check">${t.done ? '✓' : '○'}</span>${ab}${book ? `<b>${esc(book.name)}</b> ` : ''}${esc(t.text || (subject ? subject.name : ''))}</div>`;
       }).join('') + (over ? `<div class="ps-more">+${list.length - shown.length}개 더</div>` : '');
       grid += `<div class="ps-cell" style="height:${rowH}px">
         <div class="ps-cell-head">
@@ -623,10 +644,11 @@ function viewPrintSheet() {
 
   const monthExams = exams.filter((e) => e.date.startsWith(`${y}-${pad(m)}`));
   const legend = S.data.subjects.map((s) => {
+    if (mono) return `<span class="ps-lg">(${esc(abbrOf(s))}) ${esc(s.name)}</span>`;
     const c = colorOf(s.id);
     return `<span class="ps-lg"><i style="background:${c[1]}"></i><i style="background:${c[2]}"></i>${esc(s.name)}</span>`;
   }).join('');
-  const vars = `--ink:${st.ink};--sub:${st.sub};--line:${st.line};--outer:${st.outer};--cell-bg:${st.cellBg};--head-bg:${st.headBg};--radius:${st.radius}px;--accent-light:${curTheme().c[0][1]};--circle:${st.circle}`;
+  const vars = `--font:${curFont().family};--ink:${st.ink};--sub:${st.sub};--line:${st.line};--outer:${st.outer};--cell-bg:${st.cellBg};--head-bg:${st.headBg};--radius:${st.radius}px;--accent-light:${curTheme().c[0][1]};--circle:${st.circle}`;
 
   return `<div class="print-sheet st-${st.id}" style="width:${SHEET_W}px;height:${SHEET_H}px;padding:${PAD}px;${vars}">
     <div class="ps-header" style="height:${HEAD}px">
@@ -786,7 +808,7 @@ const PENDING_TABS = ['style', 'color', 'font', 'display'];
 function pendingOf() {
   if (!S.ui.pending) {
     const st = settings();
-    S.ui.pending = { styleId: st.styleId, prevStyle: st.prevStyle, themeId: st.themeId, fontId: st.fontId, showGoal: st.showGoal !== false };
+    S.ui.pending = { styleId: st.styleId, prevStyle: st.prevStyle, themeId: st.themeId, fontId: st.fontId, showGoal: st.showGoal !== false, showAbbr: st.showAbbr !== false };
   }
   return S.ui.pending;
 }
@@ -795,7 +817,7 @@ function pendingChanged() {
   const p = S.ui.pending;
   if (!p) return false;
   const st = settings();
-  return p.styleId !== st.styleId || p.themeId !== st.themeId || p.fontId !== st.fontId || p.showGoal !== (st.showGoal !== false);
+  return p.styleId !== st.styleId || p.themeId !== st.themeId || p.fontId !== st.fontId || p.showGoal !== (st.showGoal !== false) || p.showAbbr !== (st.showAbbr !== false);
 }
 
 function pickMark(isPending, isCurrent) {
@@ -819,7 +841,11 @@ function viewSettingsModal() {
   else body = exportBody();
 
   let foot;
-  if (PENDING_TABS.includes(tab)) {
+  if (tab === 'color' && S.ui.palEdit) {
+    foot = `<span class="hint small">저장하면 내 팔레트에 추가돼요</span>
+      <button class="btn" data-act="pal-cancel">취소</button>
+      <button class="btn btn-primary" data-act="pal-save">팔레트 저장</button>`;
+  } else if (PENDING_TABS.includes(tab)) {
     foot = `<span class="hint small">고른 다음 <b>설정</b>을 눌러야 적용돼요</span>
       <button class="btn" data-act="close-modal">취소</button>
       <button class="btn btn-primary" data-act="apply-settings"${pendingChanged() ? '' : ' disabled'}>설정</button>`;
@@ -885,7 +911,7 @@ function categoryBody() {
   if (!sub) {
     right = '<span class="hint">왼쪽에서 과목을 고르면, 그 과목의 문제집을 등록할 수 있어요.</span>';
   } else {
-    const swatches = th.c.map((c, i) => `<button class="color-sw${sub.color % 8 === i ? ' on' : ''}" data-act="subject-color" data-i="${i}" style="background:${c[1]};border-color:${c[2]}" aria-label="${esc(c[0])} 색으로 바꾸기" title="${esc(c[0])}"></button>`).join('');
+    const swatches = th.c.map((c, i) => `<button class="color-sw${sub.color % th.c.length === i ? ' on' : ''}" data-act="subject-color" data-i="${i}" style="background:${c[1]};border-color:${c[2]}" aria-label="${esc(c[0])} 색으로 바꾸기" title="${esc(c[0])}"></button>`).join('');
     const books = S.data.books.filter((b) => b.subjectId === sub.id).map((b) => `<div class="list-row book-row">
         <span class="list-name">${esc(b.name)}</span>
         <button class="icon-btn sm" data-act="rename-book" data-id="${b.id}" aria-label="${esc(b.name)} 이름 바꾸기">${ICON.pencil}</button>
@@ -916,12 +942,12 @@ function categoryBody() {
 
 function styleBody() {
   const p = pendingOf();
-  const th = THEMES.find((t) => t.id === p.themeId) || curTheme();
+  const th = findTheme(p.themeId) || curTheme();
   return '<div class="pick-grid cols-3">' + STYLES.map((s) => {
     let mini = '';
     for (let z = 0; z < 21; z++) {
       const col = z % 7;
-      mini += `<span class="mini-cell" style="border-color:${s.line}"><span style="color:${col === 0 ? s.sun : col === 6 ? s.sat : s.ink}">${z + 3}</span><i style="background:${z % 3 === 0 ? th.c[z % 8][2] : th.c[z % 8][1]}"></i><i style="background:${z % 2 === 0 ? th.c[(z + 3) % 8][1] : 'transparent'}"></i></span>`;
+      mini += `<span class="mini-cell" style="border-color:${s.line}"><span style="color:${col === 0 ? s.sun : col === 6 ? s.sat : s.ink}">${z + 3}</span><i style="background:${z % 3 === 0 ? tc(th, z)[2] : tc(th, z)[1]}"></i><i style="background:${z % 2 === 0 ? tc(th, z + 3)[1] : 'transparent'}"></i></span>`;
     }
     const on = p.styleId === s.id;
     return `<button class="pick-card${on ? ' on' : ''}" data-act="pick-style" data-id="${s.id}" aria-pressed="${on}">
@@ -935,20 +961,56 @@ function styleBody() {
 }
 
 function colorBody() {
+  if (S.ui.palEdit) return paletteEditor();
   const p = pendingOf();
-  return THEME_GROUPS.map((g) => `<h3 class="pick-group">${esc(g.name)} <small>${esc(g.desc)}</small></h3><div class="pick-grid cols-4">` + THEMES.filter((t) => t.group === g.id).map((t) => {
+  const card = (t, custom) => {
     const on = p.themeId === t.id;
     const sw = t.c.map((c) => `<span class="swatch-pair" title="${esc(c[0])}"><i style="background:${c[1]}"></i><i style="background:${c[2]}"></i></span>`).join('');
-    return `<button class="pick-card${on ? ' on' : ''}" data-act="pick-theme" data-id="${t.id}" aria-pressed="${on}">
-      <span class="pick-name">${esc(t.name)} <small>${esc(t.desc)}</small>${pickMark(on, settings().themeId === t.id)}</span>
-      <span class="swatch-row">${sw}</span>
-    </button>`;
-  }).join('') + '</div>').join('');
+    return `<div class="pick-card pal-card${on ? ' on' : ''}">
+      <button class="pal-pick" data-act="pick-theme" data-id="${t.id}" aria-pressed="${on}">
+        <span class="pick-name">${esc(t.name)} <small>${esc(t.desc)}</small>${pickMark(on, settings().themeId === t.id)}</span>
+        <span class="swatch-row" style="grid-template-columns:repeat(${Math.max(8, t.c.length)}, minmax(0, 1fr))">${sw}</span>
+      </button>
+      ${custom ? `<div class="pal-tools"><button class="btn btn-sm" data-act="pal-edit" data-id="${t.id}">${ICON.pencil}편집</button><button class="btn btn-sm danger" data-act="pal-delete" data-id="${t.id}">삭제</button></div>`
+        : `<div class="pal-tools"><button class="btn btn-sm" data-act="pal-copy" data-id="${t.id}">${ICON.plus}이 색으로 내 팔레트 만들기</button></div>`}
+    </div>`;
+  };
+  const custom = allThemes().filter((t) => t.group === 'custom');
+  return THEME_GROUPS.map((g) => {
+    const list = g.id === 'custom' ? custom : THEMES.filter((t) => t.group === g.id);
+    const add = g.id === 'custom' ? `<button class="pick-card pal-new" data-act="pal-new">${ICON.plus}<span>새 팔레트 만들기</span><small>색을 직접 골라 추가해요</small></button>` : '';
+    return `<h3 class="pick-group">${esc(g.name)} <small>${esc(g.desc)}</small></h3><div class="pick-grid cols-4">${list.map((t) => card(t, g.id === 'custom')).join('')}${add}</div>`;
+  }).join('');
+}
+
+function paletteEditor() {
+  const ed = S.ui.palEdit;
+  const presets = THEMES.map((t) => `<option value="${t.id}">${esc(t.name)} (${t.group === 'rainbow' ? '레인보우' : '컬러 믹스'})</option>`).join('');
+  const rows = ed.colors.map((c, i) => {
+    const [light, deep] = makePair(c.hex);
+    return `<div class="pal-row">
+      <span class="pal-no">${i + 1}</span>
+      <input type="color" class="pal-color" value="${esc(c.hex)}" data-input="pal-hex" data-i="${i}" aria-label="${i + 1}번 색 고르기">
+      <input class="field pal-cname" value="${esc(c.name)}" data-input="pal-cname" data-i="${i}" placeholder="색 이름 (선택)" maxlength="12" aria-label="${i + 1}번 색 이름">
+      <span class="pal-preview"><span style="background:${light};color:${inkOn(light)}">미완료</span><span style="background:${deep};color:${inkOn(deep)}">완료</span></span>
+      <button class="icon-btn sm" data-act="pal-remove" data-i="${i}" aria-label="${i + 1}번 색 빼기"${ed.colors.length <= 1 ? ' disabled' : ''}>${ICON.x}</button>
+    </div>`;
+  }).join('');
+  return `<div class="pal-editor">
+    <div class="pal-top">
+      <div class="field-group grow"><label class="field-label" for="pal-name">팔레트 이름</label><input id="pal-name" class="field" data-input="pal-name" value="${esc(ed.name)}" maxlength="20" placeholder="예: 내 시험기간 색"></div>
+      <div class="field-group"><label class="field-label" for="pal-from">기존 테마 색 불러오기</label>
+        <select id="pal-from" class="field" data-input="pal-from"><option value="">선택…</option>${presets}</select></div>
+    </div>
+    <p class="hint small" style="margin:0">색을 고르면 미완료(연한 색)와 완료(짙은 색)가 자동으로 만들어져요. 과목은 위에서부터 순서대로 색을 받아요.</p>
+    <div class="pal-list">${rows}</div>
+    <button class="btn pal-add" data-act="pal-add"${ed.colors.length >= 16 ? ' disabled' : ''}>${ICON.plus}색 추가 <small>(${ed.colors.length}/16)</small></button>
+  </div>`;
 }
 
 function fontBody() {
   const p = pendingOf();
-  const th = THEMES.find((t) => t.id === p.themeId) || curTheme();
+  const th = findTheme(p.themeId) || curTheme();
   return '<div class="pick-grid cols-2">' + FONTS.map((f) => {
     const on = p.fontId === f.id;
     const k = f.scale;
@@ -957,9 +1019,9 @@ function fontBody() {
       <span style="font-size:${Math.round(22 * k)}px">May · GOAL : 1학기 중간고사 대비</span>
       <span class="row-wrap">
         <span style="font-size:${Math.round(16 * k)}px;font-weight:700">D-12</span>
-        <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${th.c[0][1]};color:${inkOn(th.c[0][1])}"><b>쎈</b> 06단원</span>
-        <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${th.c[1][2]};color:${inkOn(th.c[1][2])}"><b>RPM</b> p.109~119</span>
-        <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${th.c[2][1]};color:${inkOn(th.c[2][1])}"><b>모의고사</b> 38~40번</span>
+        <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${tc(th, 0)[1]};color:${inkOn(tc(th, 0)[1])}"><b>쎈</b> 06단원</span>
+        <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${tc(th, 1)[2]};color:${inkOn(tc(th, 1)[2])}"><b>RPM</b> p.109~119</span>
+        <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${tc(th, 2)[1]};color:${inkOn(tc(th, 2)[1])}"><b>모의고사</b> 38~40번</span>
       </span>
     </button>`;
   }).join('') + '</div>';
@@ -974,6 +1036,7 @@ function displayBody() {
     </button>`;
   return `<div class="switch-list">
     ${sw('toggle-goal', p.showGoal, 'GOAL (이번 달 목표) 표시', '끄면 캘린더 위의 GOAL 칸과 인쇄용 A4에서 목표가 숨겨져요. 적어 둔 목표는 지워지지 않아요.')}
+    ${sw('toggle-abbr', p.showAbbr, '과목 약자 표시', '할 일 앞에 (수) (영)처럼 과목 첫 글자를 붙여요. 약자는 환경설정 → 카테고리에서 과목 이름 옆 연필을 눌러 바꿀 수 있어요.')}
     ${sw('toggle-night', night, '나이트모드', '밤 공부용 어두운 화면 · 팝업까지 어두워져요. 끄면 원래 쓰던 캘린더 스타일로 돌아가요.')}
   </div>`;
 }
@@ -1040,8 +1103,11 @@ function exportBody() {
   const preview = ex.url
     ? `<img class="export-img" src="${ex.url}" alt="${y}년 ${m}월 A4 미리보기">`
     : `<div class="notice export-wait">${ex.error ? esc(ex.error) : 'A4 이미지를 만드는 중…'}</div>`;
-  return `${preview}
-    <p class="hint small" style="margin:0">${y}년 ${m}월을 A4 가로 한 장으로 만들어요. 칸에 다 안 들어가는 할 일은 "+N개 더"로 표시돼요.${isNight() ? ' 나이트모드는 잉크 절약을 위해 흰 배경으로 저장돼요.' : ''}</p>`;
+  const mode = S.ui.exportMode === 'mono' ? 'mono' : 'color';
+  const seg = [['color', '컬러'], ['mono', '글씨만 (흑백)']].map(([id, name]) => `<button class="tab${mode === id ? ' on' : ''}" role="tab" aria-selected="${mode === id}" data-act="export-mode" data-mode="${id}">${name}</button>`).join('');
+  return `<div class="tabs export-tabs" role="tablist">${seg}</div>
+    ${preview}
+    <p class="hint small" style="margin:0">${mode === 'mono' ? '형광펜(색 배경) 없이 글씨만 흑백으로 뽑아요. 과목은 (수) (영)처럼 약자로 구분돼요. ' : ''}${y}년 ${m}월을 A4 가로 한 장으로 만들어요. 칸에 다 안 들어가는 할 일은 "+N개 더"로 표시돼요.${isNight() ? ' 나이트모드는 잉크 절약을 위해 흰 배경으로 저장돼요.' : ''}</p>`;
 }
 
 function viewAccountModal() {
@@ -1084,6 +1150,7 @@ function openModal(name, extra) {
 
 function openSettings(tab, opts) {
   const o = opts || {};
+  S.ui.palEdit = null;
   if (!o.keepPending) S.ui.pending = null;
   const extra = { setTab: tab };
   if ('returnToTodo' in o) extra.returnToTodo = o.returnToTodo;
@@ -1099,6 +1166,7 @@ function closeModal() {
   if (S.ui.export && S.ui.export.url) URL.revokeObjectURL(S.ui.export.url);
   S.ui.export = null;
   S.ui.pending = null;
+  S.ui.palEdit = null;
   S.ui.modal = null;
   S.ui.draft = null;
   render();
@@ -1260,6 +1328,7 @@ const actions = {
     st.themeId = p.themeId;
     st.fontId = p.fontId;
     st.showGoal = p.showGoal;
+    st.showAbbr = p.showAbbr;
     applyTheme();
     S.ui.pending = null;
     S.ui.modal = null;
@@ -1270,10 +1339,11 @@ const actions = {
     const input = document.getElementById('new-subject');
     const name = input.value.trim();
     if (!name) { input.focus(); return; }
-    const used = new Set(S.data.subjects.map((s) => s.color % 8));
+    const n = curTheme().c.length;
+    const used = new Set(S.data.subjects.map((s) => s.color % n));
     let color = 0;
-    while (used.has(color) && color < 8) color++;
-    if (color === 8) color = S.data.subjects.length % 8;
+    while (used.has(color) && color < n) color++;
+    if (color === n) color = S.data.subjects.length % n;
     const s = { id: newId('s'), name, color, order: Date.now() };
     S.data.subjects.push(s);
     S.ui.catSubject = s.id;
@@ -1286,6 +1356,11 @@ const actions = {
     const name = s && prompt('과목 이름', s.name);
     if (!name || !name.trim()) return;
     s.name = name.trim();
+    const ab = prompt('할 일 앞에 붙는 과목 약자 (비워 두면 첫 글자)', s.abbr || '');
+    if (ab !== null) {
+      const v = ab.trim().replace(/[()]/g, '').slice(0, 3);
+      if (v) s.abbr = v; else delete s.abbr;
+    }
     commit();
   },
   'delete-subject': (el) => {
@@ -1339,6 +1414,64 @@ const actions = {
   },
   'pick-theme': (el) => { pendingOf().themeId = el.dataset.id; render(); },
   'pick-font': (el) => { pendingOf().fontId = el.dataset.id; render(); },
+  'pal-new': () => {
+    const th = findTheme(pendingOf().themeId) || curTheme();
+    S.ui.palEdit = { id: null, name: '', colors: th.base.slice(0, 8).map((hex, i) => ({ name: th.c[i][0], hex })) };
+    render();
+  },
+  'pal-copy': (el) => {
+    const th = findTheme(el.dataset.id);
+    if (!th) return;
+    S.ui.palEdit = { id: null, name: th.name + ' (내 팔레트)', colors: th.base.map((hex, i) => ({ name: th.c[i][0], hex })) };
+    render();
+  },
+  'pal-edit': (el) => {
+    const pal = customPalettes().find((x) => x.id === el.dataset.id);
+    if (!pal) return;
+    S.ui.palEdit = JSON.parse(JSON.stringify(pal));
+    render();
+  },
+  'pal-add': () => {
+    const ed = S.ui.palEdit;
+    if (!ed || ed.colors.length >= 16) return;
+    const last = ed.colors[ed.colors.length - 1];
+    const seed = ['#F5A9A9', '#F9C99B', '#F7E08E', '#BCE2A8', '#A9D3F0', '#AEB9EC', '#CDB6EC', '#F5B9D6'];
+    ed.colors.push({ name: '', hex: seed[ed.colors.length % seed.length] === (last && last.hex) ? '#C9C9C9' : seed[ed.colors.length % seed.length] });
+    render();
+    const list = document.querySelector('.pal-list');
+    if (list) list.lastElementChild.scrollIntoView({ block: 'nearest' });
+  },
+  'pal-remove': (el) => {
+    const ed = S.ui.palEdit;
+    if (!ed || ed.colors.length <= 1) return;
+    ed.colors.splice(Number(el.dataset.i), 1);
+    render();
+  },
+  'pal-cancel': () => { S.ui.palEdit = null; render(); },
+  'pal-save': () => {
+    const ed = S.ui.palEdit;
+    if (!ed) return;
+    const list = customPalettes();
+    const name = (ed.name || '').trim() || '내 팔레트 ' + (list.length + 1);
+    const pal = { id: ed.id || newId('pal'), name, colors: ed.colors.map((c) => ({ name: (c.name || '').trim(), hex: c.hex })) };
+    const i = list.findIndex((x) => x.id === pal.id);
+    if (i >= 0) list[i] = pal; else list.push(pal);
+    saveCustomPalettes(list);
+    S.ui.palEdit = null;
+    pendingOf().themeId = pal.id; // 바로 골라 둠 → "설정"을 누르면 적용
+    if (settings().themeId === pal.id) applyTheme();
+    commit();
+  },
+  'pal-delete': (el) => {
+    const pal = customPalettes().find((x) => x.id === el.dataset.id);
+    if (!pal || !confirm(`'${pal.name}' 팔레트를 삭제할까요?`)) return;
+    saveCustomPalettes(customPalettes().filter((x) => x.id !== pal.id));
+    if (settings().themeId === pal.id) settings().themeId = 'rb-pastel';
+    if (S.ui.pending && S.ui.pending.themeId === pal.id) S.ui.pending.themeId = settings().themeId;
+    applyTheme();
+    commit();
+  },
+  'toggle-abbr': () => { const p = pendingOf(); p.showAbbr = !p.showAbbr; render(); },
   'toggle-goal': () => { const p = pendingOf(); p.showGoal = !p.showGoal; render(); },
   'toggle-night': () => {
     if (S.phase !== 'app') {
@@ -1371,11 +1504,19 @@ const actions = {
     commit();
   },
   'open-account': () => openModal('account'),
+  'export-mode': (el) => {
+    if (S.ui.exportMode === el.dataset.mode) return;
+    S.ui.exportMode = el.dataset.mode;
+    if (S.ui.export && S.ui.export.url) URL.revokeObjectURL(S.ui.export.url);
+    S.ui.export = {};
+    render();
+    setTimeout(makeExportImage, 30);
+  },
   'export-print': () => window.print(),
   'export-save': async () => {
     const ex = S.ui.export;
     if (!ex || !ex.blob) return;
-    const name = `exam-monthly-${S.ui.year}-${pad(S.ui.month)}.png`;
+    const name = `exam-monthly-${S.ui.year}-${pad(S.ui.month)}${S.ui.exportMode === 'mono' ? '-text' : ''}.png`;
     // 아이패드 · 폰: 공유 창에서 "이미지 저장"으로 사진 앱에 저장
     try {
       const file = new File([ex.blob], name, { type: 'image/png' });
@@ -1539,6 +1680,17 @@ function bindEvents() {
     if (kind === 'title') {
       S.data.titles[S.ui.year + '-' + S.ui.month] = el.value;
       commit({ render: false });
+    } else if (kind === 'pal-name' && S.ui.palEdit) {
+      S.ui.palEdit.name = el.value;
+    } else if (kind === 'pal-cname' && S.ui.palEdit) {
+      S.ui.palEdit.colors[Number(el.dataset.i)].name = el.value;
+    } else if (kind === 'pal-hex' && S.ui.palEdit) {
+      S.ui.palEdit.colors[Number(el.dataset.i)].hex = el.value;
+      const row = el.closest('.pal-row');
+      const [light, deep] = makePair(el.value);
+      const spans = row ? row.querySelectorAll('.pal-preview span') : [];
+      if (spans[0]) { spans[0].style.background = light; spans[0].style.color = inkOn(light); }
+      if (spans[1]) { spans[1].style.background = deep; spans[1].style.color = inkOn(deep); }
     } else if (kind === 'contact-msg') {
       contactState().message = el.value;
     } else if (kind === 'contact-email') {
@@ -1554,6 +1706,10 @@ function bindEvents() {
     const el = e.target;
     const kind = el.dataset && el.dataset.input;
     if (kind === 'draft-date' && S.ui.draft && el.value) { S.ui.draft.date = el.value; render(); }
+    if (kind === 'pal-from' && S.ui.palEdit && el.value) {
+      const th = findTheme(el.value);
+      if (th) { S.ui.palEdit.colors = th.base.map((hex, i) => ({ name: th.c[i][0], hex })); render(); }
+    }
     if (kind === 'import' && el.files && el.files[0]) importBackup(el.files[0]);
   });
 
