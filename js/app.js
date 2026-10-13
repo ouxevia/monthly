@@ -31,6 +31,9 @@ const S = {
   },
 };
 const LOCAL_STARTED_KEY = 'exam-monthly:local-started';
+// 폰처럼 좁은 화면: 칸에는 색 막대만, 날짜를 누르면 아래에 그날 할 일 목록
+const COMPACT_MQ = window.matchMedia('(max-width: 700px)');
+const isCompact = () => COMPACT_MQ.matches;
 const $app = document.getElementById('app');
 
 // ---------------------------------------------------------------- 유틸
@@ -324,6 +327,7 @@ function render() {
   if (cs) cs.scrollLeft = calScrollX;
   const mb = document.querySelector('.modal-scroll');
   if (mb) mb.scrollTop = modalScrollY;
+  fitCalendar();
   Object.keys(cellScroll).forEach((k) => {
     const el = document.querySelector(`.cell[data-date="${k}"] .todos`);
     if (el) el.scrollTop = cellScroll[k];
@@ -418,8 +422,8 @@ function viewApp() {
           <button class="icon-btn nav-arrow" data-act="next-month" aria-label="다음 달">${ICON.right}</button>
           <button class="today-link" data-act="go-today">오늘</button>
         </nav>
-        <button class="btn btn-sm" data-act="open-settings">${ICON.gear}환경설정</button>
-        <button class="btn btn-sm refresh-btn" data-act="refresh" title="최신 버전으로 새로고침">${ICON.refresh}새로고침</button>
+        <button class="btn btn-sm" data-act="open-settings" aria-label="환경설정">${ICON.gear}<span class="btn-label">환경설정</span></button>
+        <button class="btn btn-sm refresh-btn" data-act="refresh" title="최신 버전으로 새로고침" aria-label="새로고침">${ICON.refresh}<span class="btn-label">새로고침</span></button>
         <button class="btn account-pill" data-act="open-account">
           ${avatar(user, initial, 'avatar-sm')}
           <span class="account-name">${esc(user.name)}</span>
@@ -456,7 +460,9 @@ function viewCalendar() {
   const todosByDate = {};
   S.data.todos.forEach((t) => { (todosByDate[t.date] = todosByDate[t.date] || []).push(t); });
 
-  let html = `<div class="cal-scroll"><div class="cal weeks-${rows}${S.ui.slide ? ' slide-' + S.ui.slide : ''}" role="grid" aria-label="${y}년 ${m}월">`;
+  const compact = isCompact();
+  const sel = selectedDate();
+  let html = `<div class="cal-scroll"><div class="cal weeks-${rows}${compact ? ' compact' : ''}${S.ui.slide ? ' slide-' + S.ui.slide : ''}" data-rows="${rows}" role="grid" aria-label="${y}년 ${m}월">`;
   html += '<div class="cal-head" role="row">' + WEEKDAYS.map((w, i) => `<div class="wd${i === 0 ? ' sun' : i === 6 ? ' sat' : ''}" role="columnheader">${w}</div>`).join('') + '</div>';
   for (let r = 0; r < rows; r++) {
     html += '<div class="cal-row" role="row">';
@@ -468,6 +474,17 @@ function viewCalendar() {
       const ex = nearest(k);
       const dd = ex ? dayNum(ex.date) - dayNum(k) : null;
       const numCls = c === 0 || hol ? ' sun' : c === 6 ? ' sat' : '';
+      if (compact) {
+        const list = todosByDate[k] || [];
+        const bars = list.slice(0, 4).map((t) => { const col = colorOf(t.subjectId); return `<i style="background:${t.done ? col[2] : col[1]}"></i>`; }).join('');
+        html += `<button class="cell cell-compact${k === today ? ' today' : ''}${k === sel ? ' sel' : ''}" data-date="${k}" data-act="sel-date" role="gridcell" aria-label="${m}월 ${d}일${hol ? ' ' + esc(hol) : ''}, 할 일 ${list.length}개" aria-pressed="${k === sel}">
+          <span class="num${numCls}">${d}</span>
+          ${ex ? `<span class="dday${dd === 0 ? ' on' : ''}">${dd === 0 ? 'D-day' : 'D-' + dd}</span>` : ''}
+          <span class="bars">${bars}</span>
+          ${list.length > 4 ? `<span class="more-n">+${list.length - 4}</span>` : ''}
+        </button>`;
+        continue;
+      }
       const todos = (todosByDate[k] || []).map(viewChip).join('');
       html += `<div class="cell${k === today ? ' today' : ''}" data-date="${k}" role="gridcell">
         <div class="cell-head">
@@ -483,7 +500,56 @@ function viewCalendar() {
     }
     html += '</div>';
   }
-  return html + '</div></div>';
+  html += '</div></div>';
+  if (compact) html += viewDayPanel(sel, todosByDate[sel] || [], nearest(sel));
+  return html;
+}
+
+// 지금 보고 있는 달 안에서 선택된 날짜 (기본: 오늘, 다른 달이면 1일)
+function selectedDate() {
+  const { year: y, month: m } = S.ui;
+  const prefix = `${y}-${pad(m)}-`;
+  if (S.ui.selDate && S.ui.selDate.startsWith(prefix)) return S.ui.selDate;
+  const t = todayKey();
+  return t.startsWith(prefix) ? t : prefix + '01';
+}
+
+function viewDayPanel(k, list, ex) {
+  const [y, m, d] = k.split('-').map(Number);
+  const hol = holidayOf(y, k.slice(5));
+  const wd = WEEKDAYS_KO[new Date(y, m - 1, d).getDay()];
+  const dd = ex ? dayNum(ex.date) - dayNum(k) : null;
+  const items = list.map((t) => viewChip(t).replace('class="chip', 'class="chip chip-lg')).join('') || '<p class="hint" style="margin:4px 0">이 날은 아직 할 일이 없어요.</p>';
+  return `<section class="day-panel" aria-label="${m}월 ${d}일 할 일">
+    <div class="day-head">
+      <span class="day-title">${m}월 ${d}일 (${wd})</span>
+      ${hol ? `<span class="hol">${esc(hol)}</span>` : ''}
+      ${ex ? `<span class="dday${dd === 0 ? ' on' : ''}">${ddayText(dd)} · ${esc(ex.name)}</span>` : ''}
+      <span class="sp"></span>
+      <button class="btn btn-sm" data-act="open-add" data-date="${k}">${ICON.plus}할 일</button>
+    </div>
+    <div class="day-list">${items}</div>
+  </section>`;
+}
+
+// 화면 높이에 맞춰 캘린더 칸 높이 조절 (할 일 7줄은 항상 보장)
+function fitCalendar() {
+  const cal = document.querySelector('.cal');
+  if (!cal) return;
+  const rows = Number(cal.dataset.rows) || 6;
+  const head = 32;
+  const top = cal.getBoundingClientRect().top + window.scrollY;
+  if (cal.classList.contains('compact')) {
+    const h = Math.round(Math.min(78, Math.max(54, (window.innerHeight * 0.58 - top - head) / rows)));
+    cal.style.setProperty('--row-h', h + 'px');
+    return;
+  }
+  const legend = document.querySelector('.legend');
+  const below = (legend ? legend.offsetHeight : 20) + 40;
+  const chipH = parseFloat(getComputedStyle(cal).getPropertyValue('--chip-h')) || 16;
+  const min = Math.ceil(24 + 3 + 7 * chipH + 6 * 2 + 14); // 할 일 7줄이 항상 보이는 높이
+  const h = Math.max(min, Math.floor((window.innerHeight - top - head - below) / rows));
+  cal.style.setProperty('--row-h', h + 'px');
 }
 
 function viewChip(t) {
@@ -1119,6 +1185,7 @@ const actions = {
     c.busy = false;
     render();
   },
+  'sel-date': (el) => { S.ui.selDate = el.dataset.date; render(); },
   'prev-month': () => shiftMonth(-1),
   'next-month': () => shiftMonth(1),
   'prev-year': () => { S.ui.year -= 1; render(); },
@@ -1514,6 +1581,11 @@ function bindEvents() {
 
   bindDrag();
   bindSwipe();
+  let resizeTimer = null;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(fitCalendar, 120); });
+  const onMq = () => { if (S.phase === 'app') renderSoft(); };
+  if (COMPACT_MQ.addEventListener) COMPACT_MQ.addEventListener('change', onMq); else COMPACT_MQ.addListener(onMq);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitCalendar);
 }
 
 // 드래그로 날짜 이동: 마우스는 바로, 터치는 길게 눌러서 시작

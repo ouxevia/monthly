@@ -474,3 +474,68 @@ body.dark .notice-ok { color: #8FD6A8; }
 .fb-msg { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .fb-reply { font-size: 14px; white-space: pre-wrap; background: var(--soft); border-radius: 8px; padding: 10px 12px; overflow-wrap: anywhere; }
 .fb-reply b { display: block; font-size: 12px; color: var(--label); margin-bottom: 4px; }
+
+/* ---------- 화면 크기에 맞춰 자동 조절 ---------- */
+.cal { min-width: 0; }
+.month-title { font-size: clamp(30px, 4.2vw, 44px); font-size: clamp(calc(30px * var(--k)), calc(4.2vw * var(--k)), calc(44px * var(--k))); }
+.title-label { font-size: clamp(18px, 2.4vw, calc(26px * var(--k))); }
+.title-input { font-size: clamp(18px, 2.6vw, calc(28px * var(--k))); }
+
+/* 중간 폭(태블릿 세로 등): 칸이 좁아지면 글씨를 조금 줄임 */
+@media (max-width: 1000px) {
+  .cell { padding: 4px 4px 4px 5px; }
+  .chip { padding: 0 4px 0 2px; gap: 3px; }
+  .hol { display: none; }
+  .wd { letter-spacing: 0; }
+}
+
+/* 폰: 칸에는 숫자 · D-day · 색 막대, 아래에 고른 날의 할 일 목록 */
+.cal.compact .cal-row { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.cell-compact {
+  height: var(--row-h); width: 100%; min-width: 0; border: 0; border-radius: 0; background: transparent; color: var(--ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; padding: 5px 2px 4px;
+  font-family: inherit; cursor: pointer;
+}
+.cal-row .cell-compact + .cell-compact, .cal-row .cell + .cell-compact, .cal-row .cell-compact + .cell { border-left: 1px solid var(--line); }
+.cell-compact.today { background: var(--today-bg); }
+.cell-compact.sel { box-shadow: inset 0 0 0 2px var(--sat); }
+.cell-compact.drop { background: var(--drop); }
+.cell-compact .num { font-size: calc(15px * var(--k)); min-width: 0; }
+.cell-compact .dday { font-size: calc(9.5px * var(--k)); line-height: 1; }
+.cell-compact .bars { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 0 3px; margin-top: auto; }
+.cell-compact .bars i { display: block; height: 4px; border-radius: 2px; }
+.cell-compact .more-n { font-size: 9px; color: var(--sub); line-height: 1; }
+.cal.compact .cal-head { height: 26px; }
+.cal.compact .wd { font-size: calc(10px * var(--k)); }
+
+.day-panel { border: var(--outer); border-radius: max(var(--radius), 12px); background: var(--cell-bg); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.day-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.day-title { font-size: calc(17px * var(--k)); font-weight: 700; }
+.day-head .hol { display: inline; font-size: calc(12px * var(--k)); }
+.day-head .dday { font-size: calc(13px * var(--k)); }
+.day-list { display: flex; flex-direction: column; gap: 6px; }
+.chip.chip-lg { height: auto; min-height: 40px; padding: 6px 12px 6px 10px; border-radius: 10px; gap: 10px; }
+.chip.chip-lg .chip-check { width: 20px; height: 20px; }
+.chip.chip-lg .chip-check svg { width: 12px; height: 12px; }
+.chip.chip-lg .chip-text { font-size: calc(15px * var(--k)); line-height: 1.35; white-space: normal; }
+
+@media (max-width: 700px) {
+  .page { padding: 12px 10px 20px; gap: 10px; }
+  .top { gap: 8px; }
+  .top .title-row { flex-basis: 100%; gap: 6px 14px; }
+  .title-wrap { min-width: 0; flex-basis: 100%; }
+  .title-input { max-width: none; }
+  .top-right { gap: 6px; }
+  .btn-label, .account-pill .account-name, .account-pill .sub-text { display: none; }
+  .account-pill { padding: 0 8px 0 4px; }
+  .month-nav .year-text { min-width: 52px; }
+  .nav-arrow { width: 36px; height: 36px; }
+  .legend { gap: 10px; font-size: 12px; }
+  .legend-help { display: none; }
+}
+/* 큰 모니터: 더 넓게 쓰고 할 일 글씨도 조금 크게 */
+@media (min-width: 1600px) {
+  .page { max-width: 1800px; }
+  :root { --chip-h: 19px; }
+  .chip-text { font-size: calc(var(--chip-fs) + 1.5px); }
+}
