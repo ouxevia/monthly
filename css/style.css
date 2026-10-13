@@ -69,10 +69,10 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 :focus-visible { outline: 2px solid var(--sat); outline-offset: 2px; }
 
 /* ---------- 캘린더 스타일 배경 ---------- */
-body.st-simple, .style-preview.st-simple { background: #FFFFFF; }
-body.st-hand, .style-preview.st-hand { background-color: #FFFDF6; background-image: repeating-linear-gradient(#FFFDF6 0 27px, #EFE8D8 27px 28px); }
-body.st-grid, .style-preview.st-grid { background-color: #FDFCF9; background-image: linear-gradient(#EFEDE7 1px, transparent 1px), linear-gradient(90deg, #EFEDE7 1px, transparent 1px); background-size: 22px 22px; }
-body.st-vintage, .style-preview.st-vintage { background-color: #F2EADB; background-image: radial-gradient(rgba(120, 90, 50, 0.07) 1px, transparent 1px); background-size: 6px 6px; }
+body.st-simple, .style-preview.st-simple, .print-sheet.st-simple { background: #FFFFFF; }
+body.st-hand, .style-preview.st-hand, .print-sheet.st-hand { background-color: #FFFDF6; background-image: repeating-linear-gradient(#FFFDF6 0 27px, #EFE8D8 27px 28px); }
+body.st-grid, .style-preview.st-grid, .print-sheet.st-grid { background-color: #FDFCF9; background-image: linear-gradient(#EFEDE7 1px, transparent 1px), linear-gradient(90deg, #EFEDE7 1px, transparent 1px); background-size: 22px 22px; }
+body.st-vintage, .style-preview.st-vintage, .print-sheet.st-vintage { background-color: #F2EADB; background-image: radial-gradient(rgba(120, 90, 50, 0.07) 1px, transparent 1px); background-size: 6px 6px; }
 body.st-night, .style-preview.st-night { background-color: #1E2230; background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px); background-size: 22px 22px; }
 body.st-hand .style-preview, .style-preview.st-hand { background-size: auto; }
 
@@ -344,3 +344,55 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 }
 .login-tabs { width: 100%; }
 .login-tabs .tab { flex: 1; }
+
+/* ---------- A4 저장 · 인쇄 ---------- */
+.modal-export { width: 900px; }
+.export-img { width: 100%; height: auto; border: 1px solid var(--mline); border-radius: 8px; display: block; background: #FFFFFF; }
+.export-wait { min-height: 240px; display: flex; align-items: center; justify-content: center; text-align: center; }
+
+/* 화면에는 안 보이게 두었다가, 이미지로 만들 때와 인쇄할 때만 보임 */
+.print-host { position: absolute; left: 0; top: 0; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+.print-host.capturing { width: auto; height: auto; overflow: visible; }
+
+.print-sheet {
+  box-sizing: border-box; display: flex; flex-direction: column; gap: 8px;
+  font-family: var(--font); color: var(--ink); background-color: #FFFFFF;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.ps-header { display: flex; align-items: center; gap: 28px; flex: none; }
+.ps-badge { position: relative; width: 110px; height: 56px; display: flex; flex-direction: column; justify-content: center; flex: none; }
+.ps-circle { position: absolute; left: -10px; top: -2px; width: 56px; height: 56px; border-radius: 50%; background: var(--accent-light); opacity: var(--circle); }
+.ps-year { position: relative; font-size: calc(15px * var(--k)); color: var(--sub); letter-spacing: 2px; }
+.ps-month { position: relative; font-size: calc(24px * var(--k)); line-height: 1.1; }
+.ps-title { flex: 1; min-width: 0; font-size: calc(22px * var(--k)); white-space: nowrap; overflow: hidden; }
+.ps-title-label { letter-spacing: 2px; margin-right: 6px; }
+.ps-exams { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: calc(11px * var(--k)); color: var(--sub); flex: none; }
+.ps-cal { border: var(--outer); border-radius: var(--radius); background: var(--cell-bg); overflow: hidden; flex: none; }
+.ps-head-row, .ps-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.ps-head-row { height: 22px; border-bottom: 1px solid var(--line); background: var(--head-bg); }
+.ps-wd { display: flex; align-items: center; justify-content: center; font-size: calc(10px * var(--k)); letter-spacing: 1px; }
+.ps-wd + .ps-wd, .ps-cell + .ps-cell { border-left: 1px solid var(--line); }
+.ps-row + .ps-row { border-top: 1px solid var(--line); }
+.ps-cell { box-sizing: border-box; padding: 3px 4px 3px 5px; display: flex; flex-direction: column; gap: 1px; overflow: hidden; min-width: 0; }
+.ps-cell-head { display: flex; align-items: baseline; gap: 4px; height: 18px; flex: none; white-space: nowrap; overflow: hidden; }
+.ps-num { font-size: calc(12px * var(--k)); }
+.ps-hol { font-size: calc(8px * var(--k)); overflow: hidden; }
+.ps-dday { font-size: calc(9.5px * var(--k)); font-weight: 700; margin-left: auto; }
+.ps-chip {
+  height: 12px; flex: none; border-radius: 3px; padding: 0 4px 0 2px;
+  font-size: calc(8.5px * var(--k)); line-height: 12px; white-space: nowrap; overflow: hidden;
+}
+.ps-check { display: inline-block; width: 10px; font-size: 8px; }
+.ps-more { font-size: calc(8.5px * var(--k)); color: var(--sub); line-height: 12px; padding-left: 2px; }
+.ps-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: calc(10px * var(--k)); color: var(--sub); height: 22px; flex: none; }
+.ps-lg { display: inline-flex; align-items: center; gap: 3px; color: var(--ink); }
+.ps-lg i { width: 12px; height: 9px; border-radius: 2px; display: inline-block; }
+.ps-mark { margin-left: auto; }
+
+@media print {
+  @page { size: A4 landscape; margin: 0; }
+  html, body { background: #FFFFFF !important; margin: 0; }
+  #app > .page, #app > .overlay, #app > .boot, #app > .login { display: none !important; }
+  .print-host { position: static; width: auto; height: auto; overflow: visible; }
+  .print-sheet { page-break-inside: avoid; break-inside: avoid; }
+}

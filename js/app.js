@@ -68,6 +68,7 @@ const ICON = {
   layout: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>',
   palette: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 100 18c1.1 0 1.5-.8 1.5-1.5 0-.9-.7-1.3-.7-2.2 0-.8.7-1.3 1.5-1.3H17a4 4 0 004-4c0-5-4-9-9-9z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/></svg>',
   font: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20L10 4h1l6 16M6.5 14h8"/><path d="M17 20h4"/></svg>',
+  printer: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>',
   moon: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>',
 };
 
@@ -420,6 +421,7 @@ function viewApp() {
           <button class="btn" data-act="open-theme" data-tab="color">${ICON.palette}과목 색상 · ${esc(th.name)}<span class="dots">${dots}</span></button>
           <button class="btn" data-act="open-theme" data-tab="font">${ICON.font}글씨체 · ${esc(curFont().name)}</button>
           <button class="btn" data-act="toggle-night" aria-pressed="${isNight()}">${ICON.moon}${isNight() ? '나이트모드 끄기' : '나이트모드'}</button>
+          <button class="btn" data-act="open-export">${ICON.printer}A4 저장 · 인쇄</button>
         </div>
       </div>
       <div class="top-right">
@@ -442,7 +444,8 @@ function viewApp() {
     </header>
     ${viewCalendar()}
     ${viewLegend()}
-  </div>`;
+  </div>
+  ${S.ui.modal === 'export' ? `<div class="print-host" aria-hidden="true">${viewPrintSheet()}</div>` : ''}`;
 }
 
 function avatar(user, initial, cls) {
@@ -508,6 +511,145 @@ function viewChip(t) {
   </div>`;
 }
 
+// ---------------------------------------------------------------- A4 인쇄용 한 장
+
+const SHEET_W = 1123; // A4 가로 297mm (96dpi)
+const SHEET_H = 794;  // A4 세로 210mm
+
+function viewPrintSheet() {
+  const { year: y, month: m } = S.ui;
+  // 나이트모드는 인쇄하면 잉크가 많이 들어서 흰 배경(심플)으로 출력
+  const st = isNight() ? STYLES.find((x) => x.id === 'simple') : curStyle();
+  const exams = S.data.exams.slice().sort((a, b) => (a.date < b.date ? -1 : 1));
+  const nearest = (k) => exams.find((e) => e.date >= k) || null;
+  const first = new Date(y, m - 1, 1).getDay();
+  const nd = new Date(y, m, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < first; i++) cells.push(0);
+  for (let d = 1; d <= nd; d++) cells.push(d);
+  while (cells.length % 7) cells.push(0);
+  const rows = cells.length / 7;
+  const PAD = 28, HEAD = 62, WD = 22, LEG = 22, GAP = 8;
+  const rowH = Math.floor((SHEET_H - PAD * 2 - HEAD - WD - LEG - GAP * 2) / rows);
+  const LINE = 13;
+  const maxLines = Math.max(1, Math.floor((rowH - 24) / LINE));
+
+  const todosByDate = {};
+  S.data.todos.forEach((t) => { (todosByDate[t.date] = todosByDate[t.date] || []).push(t); });
+
+  let grid = '<div class="ps-head-row">' + WEEKDAYS.map((w, i) => `<div class="ps-wd" style="color:${i === 0 ? st.sun : i === 6 ? st.sat : st.ink}">${w}</div>`).join('') + '</div>';
+  for (let r = 0; r < rows; r++) {
+    grid += '<div class="ps-row">';
+    for (let c = 0; c < 7; c++) {
+      const d = cells[r * 7 + c];
+      if (!d) { grid += `<div class="ps-cell" style="height:${rowH}px"></div>`; continue; }
+      const k = keyOf(y, m, d);
+      const hol = holidayOf(y, k.slice(5));
+      const ex = nearest(k);
+      const dd = ex ? dayNum(ex.date) - dayNum(k) : null;
+      const list = todosByDate[k] || [];
+      const over = list.length > maxLines;
+      const shown = over ? list.slice(0, maxLines - 1) : list;
+      const chips = shown.map((t) => {
+        const col = colorOf(t.subjectId);
+        const book = byId(S.data.books, t.bookId);
+        const subject = byId(S.data.subjects, t.subjectId);
+        return `<div class="ps-chip" style="background:${t.done ? col[2] : col[1]};color:${t.done ? '#FFFFFF' : '#2F2B27'}"><span class="ps-check">${t.done ? '✓' : '○'}</span>${book ? `<b>${esc(book.name)}</b> ` : ''}${esc(t.text || (subject ? subject.name : ''))}</div>`;
+      }).join('') + (over ? `<div class="ps-more">+${list.length - shown.length}개 더</div>` : '');
+      grid += `<div class="ps-cell" style="height:${rowH}px">
+        <div class="ps-cell-head">
+          <span class="ps-num" style="color:${c === 0 || hol ? st.sun : c === 6 ? st.sat : st.ink}">${d}</span>
+          ${hol ? `<span class="ps-hol" style="color:${st.sun}">${esc(hol)}</span>` : ''}
+          ${ex ? `<span class="ps-dday" style="color:${dd === 0 ? st.sun : st.ink}">${ddayText(dd)}</span>` : ''}
+        </div>
+        ${chips}
+      </div>`;
+    }
+    grid += '</div>';
+  }
+
+  const monthExams = exams.filter((e) => e.date.startsWith(`${y}-${pad(m)}`));
+  const legend = S.data.subjects.map((s) => {
+    const c = colorOf(s.id);
+    return `<span class="ps-lg"><i style="background:${c[1]}"></i><i style="background:${c[2]}"></i>${esc(s.name)}</span>`;
+  }).join('');
+  const vars = `--ink:${st.ink};--sub:${st.sub};--line:${st.line};--outer:${st.outer};--cell-bg:${st.cellBg};--head-bg:${st.headBg};--radius:${st.radius}px;--accent-light:${curTheme().c[0][1]};--circle:${st.circle}`;
+
+  return `<div class="print-sheet st-${st.id}" style="width:${SHEET_W}px;height:${SHEET_H}px;padding:${PAD}px;${vars}">
+    <div class="ps-header" style="height:${HEAD}px">
+      <div class="ps-badge"><span class="ps-circle"></span><span class="ps-year">${y}</span><span class="ps-month">${MONTH_NAMES[m - 1]}</span></div>
+      <div class="ps-title"><span class="ps-title-label">TITLE :</span> ${esc(S.data.titles[y + '-' + m] || '')}</div>
+      <div class="ps-exams">${monthExams.map((e) => `<span>${esc(e.name)} · ${Number(e.date.slice(5, 7))}/${Number(e.date.slice(8))}</span>`).join('')}</div>
+    </div>
+    <div class="ps-cal">${grid}</div>
+    <div class="ps-legend">${legend}<span class="ps-mark">○ 미완료 · ✓ 완료</span></div>
+  </div>`;
+}
+
+function viewExportModal() {
+  const { year: y, month: m } = S.ui;
+  const ex = S.ui.export || {};
+  const preview = ex.url
+    ? `<img class="export-img" src="${ex.url}" alt="${y}년 ${m}월 A4 미리보기">`
+    : `<div class="notice export-wait">${ex.error ? esc(ex.error) : 'A4 이미지를 만드는 중…'}</div>`;
+  return `<div class="modal modal-export" role="dialog" aria-modal="true" aria-label="A4 저장 · 인쇄">
+    ${modalHead(`A4 저장 · 인쇄 <span class="hint small">${y}년 ${m}월</span>`)}
+    <div class="modal-scroll">
+      ${preview}
+      <p class="hint small" style="margin:0">A4 가로 한 장으로 만들어요. 칸에 다 안 들어가는 할 일은 "+N개 더"로 표시돼요.${isNight() ? ' 나이트모드는 잉크 절약을 위해 흰 배경으로 저장돼요.' : ''}</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-act="export-print">${ICON.printer}인쇄 · PDF</button>
+      <button class="btn btn-primary" data-act="export-save"${ex.blob ? '' : ' disabled'}>이미지 저장</button>
+    </div>
+  </div>`;
+}
+
+function loadScriptOnce(src, globalName) {
+  if (window[globalName]) return Promise.resolve(window[globalName]);
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src;
+    el.onload = () => (window[globalName] ? resolve(window[globalName]) : reject(new Error(globalName + ' 없음')));
+    el.onerror = () => reject(new Error(src + ' 를 불러오지 못했어요'));
+    document.head.appendChild(el);
+  });
+}
+
+async function makeExportImage() {
+  const job = {};
+  S.ui.export = job;
+  try {
+    const h2c = await loadScriptOnce(new URL('./vendor/html2canvas-1.4.1.min.js', import.meta.url).href, 'html2canvas');
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    const el = document.querySelector('.print-host .print-sheet');
+    if (!el || S.ui.export !== job) return;
+    const canvas = await h2c(el, {
+      scale: 2.5, // 약 2800 x 1985 px (인쇄용으로 충분한 해상도)
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#FFFFFF',
+      windowWidth: SHEET_W + 100,
+      windowHeight: SHEET_H + 100,
+      scrollX: 0,
+      scrollY: 0,
+      onclone: (doc) => {
+        const host = doc.querySelector('.print-host');
+        if (host) host.classList.add('capturing');
+      },
+    });
+    const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
+    if (S.ui.export !== job) return;
+    if (!blob) throw new Error('이미지를 만들지 못했어요');
+    job.blob = blob;
+    job.url = URL.createObjectURL(blob);
+  } catch (err) {
+    console.error('[export]', err);
+    job.error = '이미지를 만들지 못했어요. "인쇄 · PDF"로 저장해 보세요. (' + (err.message || err) + ')';
+  }
+  if (S.ui.modal === 'export' && S.ui.export === job) render();
+}
+
 function viewLegend() {
   const items = S.data.subjects.map((s) => {
     const c = colorOf(s.id);
@@ -530,6 +672,7 @@ function viewModal() {
   else if (m === 'theme') inner = viewThemeModal();
   else if (m === 'exam') inner = viewExamModal();
   else if (m === 'account') inner = viewAccountModal();
+  else if (m === 'export') inner = viewExportModal();
   return `<div class="overlay${m === 'account' ? ' overlay-top' : ''}" data-act="overlay">${inner}</div>`;
 }
 
@@ -770,6 +913,8 @@ function openModal(name, extra) {
 }
 
 function closeModal() {
+  if (S.ui.export && S.ui.export.url) URL.revokeObjectURL(S.ui.export.url);
+  S.ui.export = null;
   S.ui.modal = null;
   S.ui.draft = null;
   render();
@@ -988,6 +1133,32 @@ const actions = {
     commit();
   },
   'open-account': () => openModal('account'),
+  'open-export': () => {
+    openModal('export', { export: {} });
+    setTimeout(makeExportImage, 30);
+  },
+  'export-print': () => window.print(),
+  'export-save': async () => {
+    const ex = S.ui.export;
+    if (!ex || !ex.blob) return;
+    const name = `exam-monthly-${S.ui.year}-${pad(S.ui.month)}.png`;
+    // 아이패드 · 폰: 공유 창에서 "이미지 저장"으로 사진 앱에 저장
+    try {
+      const file = new File([ex.blob], name, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: name });
+        return;
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+    }
+    const a = document.createElement('a');
+    a.href = ex.url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  },
   export: () => {
     const blob = new Blob([JSON.stringify(toPlain(S.data), null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
