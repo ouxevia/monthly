@@ -1,5 +1,5 @@
 import { THEMES, STYLES, FONTS, MONTH_NAMES, WEEKDAYS, WEEKDAYS_KO, holidayOf } from './data.js';
-import { firebaseConfig, isFirebaseConfigured } from './config.js';
+import { supabaseConfig, isCloudConfigured } from './config.js';
 import { defaultData, normalize, loadLocal, saveLocal, toPlain, newId, deviceId, deviceName, toRemote, fromRemote, diffRemote, applyOps } from './store.js';
 
 // ---------------------------------------------------------------- 상태
@@ -7,7 +7,7 @@ import { defaultData, normalize, loadLocal, saveLocal, toPlain, newId, deviceId,
 const now = new Date();
 const S = {
   phase: 'boot', // boot | login | loading | app
-  mode: isFirebaseConfigured ? 'cloud' : 'local',
+  mode: isCloudConfigured ? 'cloud' : 'local',
   cloud: null,
   user: null,
   scope: 'local',
@@ -15,6 +15,7 @@ const S = {
   sync: 'local', // local | syncing | synced | error
   lastSync: 0,
   loginError: '',
+  login: { email: '', sent: false, busy: false },
   deviceRegistered: false,
   base: null, // 서버에 마지막으로 반영된 상태 (toRemote 형식)
   creating: false,
@@ -195,10 +196,10 @@ async function boot() {
   render();
   try {
     const { initCloud } = await import('./cloud.js');
-    S.cloud = await initCloud(firebaseConfig, { onUser, onRemote, onError: onCloudError });
+    S.cloud = await initCloud(supabaseConfig, { onUser, onRemote, onError: onCloudError });
   } catch (err) {
-    console.error('[firebase]', err);
-    S.loginError = 'Firebase에 연결하지 못했어요. 설정값과 인터넷 연결을 확인하세요.';
+    console.error('[supabase]', err);
+    S.loginError = '동기화 서버(Supabase)에 연결하지 못했어요. 설정값과 인터넷 연결을 확인하세요.';
     S.phase = 'login';
     render();
   }
@@ -330,13 +331,33 @@ function viewLogin() {
     const on = i % 5 === 1 || i % 7 === 4;
     cells += `<span style="background:${on ? th.c[i % 8][1] : 'var(--login-cell)'}"></span>`;
   }
-  const body = isFirebaseConfigured
-    ? `<p class="hint center">Google 계정 하나로 로그인하면<br>모든 기기에서 같은 플래너가 열려요.</p>
-       <button class="btn btn-lg" data-act="login"><span class="g-mark">G</span>Google 계정으로 계속하기</button>
-       <p class="hint small center">처음이면 자동으로 가입돼요 · 따로 회원가입이나 비밀번호가 필요 없어요</p>`
-    : `<p class="hint center">아직 Firebase 설정 전이라 Google 로그인을 쓸 수 없어요.<br>지금은 이 기기에만 저장하는 모드로 시작할 수 있어요.</p>
+  const L = S.login;
+  let body;
+  if (!isCloudConfigured) {
+    body = `<p class="hint center">아직 동기화 서버(Supabase) 설정 전이에요.<br>지금은 이 기기에만 저장하는 모드로 시작할 수 있어요.</p>
        <button class="btn btn-lg btn-primary" data-act="start-local">이 기기에서 시작하기</button>
-       <p class="hint small center">Google 로그인 · 동기화 설정 방법은 README의 "Firebase 설정"을 참고하세요.</p>`;
+       <p class="hint small center">로그인 · 동기화 설정 방법은 README의 "Supabase 설정"을 참고하세요.</p>`;
+  } else if (!L.sent) {
+    body = `<p class="hint center">이메일로 로그인 링크를 보내 드려요.<br>비밀번호 없이, 모든 기기에서 같은 플래너가 열려요.</p>
+       <div class="field-group">
+         <label class="field-label" for="login-email">이메일</label>
+         <input id="login-email" class="field" type="email" inputmode="email" autocomplete="email" placeholder="name@email.com" value="${esc(L.email)}" data-enter="login">
+       </div>
+       <button class="btn btn-lg btn-primary" data-act="login"${L.busy ? ' disabled' : ''}>${L.busy ? '보내는 중…' : '로그인 메일 받기'}</button>
+       <p class="hint small center">처음이면 자동으로 가입돼요</p>`;
+  } else {
+    body = `<p class="hint center"><b>${esc(L.email)}</b>로 메일을 보냈어요.<br>메일 속 <b>로그인 링크를 이 기기에서</b> 누르거나,<br>메일에 6자리 코드가 있으면 아래에 입력하세요.</p>
+       <div class="field-group">
+         <label class="field-label" for="login-code">6자리 코드</label>
+         <input id="login-code" class="field" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456" data-enter="verify-code">
+       </div>
+       <button class="btn btn-lg btn-primary" data-act="verify-code"${L.busy ? ' disabled' : ''}>${L.busy ? '확인 중…' : '코드로 로그인'}</button>
+       <div class="row-wrap" style="justify-content:center">
+         <button class="link-btn" data-act="login-reset">다른 이메일로</button>
+         <button class="link-btn" data-act="login">메일 다시 보내기</button>
+       </div>
+       <p class="hint small center">메일이 안 보이면 스팸함도 확인해 주세요.</p>`;
+  }
   return `<main class="login">
     <section class="login-intro">
       <h1 class="login-title">Exam Monthly</h1>
@@ -709,7 +730,7 @@ function viewAccountModal() {
     </div>
     <div class="sync-box">
       <span class="sync-line"><span class="sync-dot" data-sync-dot style="background:${syncDot()}"></span><span data-sync-text="long">${esc(syncLabel(false))}</span></span>
-      <span class="hint small">${cloud ? '할 일, 카테고리, 시험일, 테마 설정이 모든 기기에 자동 저장돼요.' : 'Firebase를 설정하면 Google 로그인으로 여러 기기에서 같은 플래너를 쓸 수 있어요.'}</span>
+      <span class="hint small">${cloud ? '할 일, 카테고리, 시험일, 테마 설정이 모든 기기에 자동 저장돼요.' : 'Supabase를 설정하면 이메일 로그인으로 여러 기기에서 같은 플래너를 쓸 수 있어요.'}</span>
       ${cloud ? '<button class="btn" data-act="sync-now">지금 동기화</button>' : ''}
     </div>
     ${cloud && devices ? `<div class="field-group"><span class="field-label">로그인된 기기</span>${devices}</div>` : ''}
@@ -741,13 +762,48 @@ function closeModal() {
 
 const actions = {
   login: async () => {
+    const input = document.getElementById('login-email');
+    if (input) S.login.email = input.value.trim();
+    const email = S.login.email;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      S.loginError = '이메일 주소를 확인해 주세요.';
+      render();
+      return;
+    }
+    if (!S.cloud) { S.loginError = '서버에 연결하는 중이에요. 잠시 후 다시 눌러 주세요.'; render(); return; }
     S.loginError = '';
-    try { await S.cloud.signIn(); } catch (err) {
+    S.login.busy = true;
+    render();
+    try {
+      await S.cloud.sendLoginEmail(email);
+      S.login.sent = true;
+    } catch (err) {
       console.error(err);
-      S.loginError = '로그인에 실패했어요. (' + (err.code || err.message) + ')';
+      S.loginError = /rate|seconds/i.test(err.message || '')
+        ? '메일을 너무 자주 보냈어요. 1분쯤 뒤에 다시 시도해 주세요.'
+        : '메일을 보내지 못했어요. (' + (err.message || err) + ')';
+    }
+    S.login.busy = false;
+    render();
+  },
+  'verify-code': async () => {
+    const input = document.getElementById('login-code');
+    const code = input ? input.value.replace(/\s/g, '') : '';
+    if (!code) { if (input) input.focus(); return; }
+    S.loginError = '';
+    S.login.busy = true;
+    render();
+    try {
+      await S.cloud.verifyCode(S.login.email, code);
+      S.login = { email: S.login.email, sent: false, busy: false };
+    } catch (err) {
+      console.error(err);
+      S.loginError = '코드가 맞지 않거나 시간이 지났어요. 메일을 다시 받아 주세요.';
+      S.login.busy = false;
       render();
     }
   },
+  'login-reset': () => { S.login = { email: S.login.email, sent: false, busy: false }; S.loginError = ''; render(); },
   'start-local': () => {
     try { localStorage.setItem(LOCAL_STARTED_KEY, '1'); } catch (e) { /* 무시 */ }
     S.phase = 'app';

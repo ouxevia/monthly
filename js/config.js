@@ -1,16 +1,13 @@
-// Firebase 설정
+// Supabase 설정
 // ------------------------------------------------------------
-// Google 로그인과 기기 간 동기화를 쓰려면 Firebase 콘솔에서 만든
-// 웹 앱 설정값을 아래에 붙여넣으세요. (README.md의 "Firebase 설정" 참고)
+// 로그인과 기기 간 동기화를 쓰려면 Supabase 대시보드에서
+// Project Settings → API (또는 Connect 버튼)에 있는 값 두 개를 아래에 붙여넣으세요.
+// (README.md의 "Supabase 설정" 참고)
 //
 // 비워 두면 로그인 없이 "이 기기에만 저장" 모드로 동작합니다.
-export const firebaseConfig = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: '',
+export const supabaseConfig = {
+  url: '',     // 예: 'https://abcdefghijklmn.supabase.co'
+  anonKey: '', // 예: 'eyJhbGciOi...' (anon public 키) 또는 'sb_publishable_...'
 };
 
-export const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
+export const isCloudConfigured = Boolean(supabaseConfig.url && supabaseConfig.anonKey);

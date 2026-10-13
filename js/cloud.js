@@ -1,75 +1,87 @@
-// Firebase Google 로그인 + Firestore 동기화
+// Supabase 이메일 로그인 + 동기화
 //
-// users/{uid} 문서 하나에 플래너를 항목별 맵으로 저장하고 (형식은 store.js의 toRemote 참고),
-// onSnapshot으로 다른 기기의 변경을 실시간으로 받아옵니다.
-// 저장할 때는 바뀐 칸만 updateDoc으로 보내서, 두 기기가 서로 다른 항목을 고쳐도 합쳐집니다.
+// planners 테이블에 사용자마다 한 줄(doc jsonb)로 플래너를 저장합니다. (형식은 store.js의 toRemote 참고)
+// 저장할 때는 바뀐 칸만 apply_planner_ops 함수로 보내서, 두 기기가 서로 다른 항목을 고쳐도 합쳐집니다.
+// 다른 기기의 변경은 Realtime 알림을 받으면 다시 읽어 옵니다.
+// 테이블 · 함수 · 보안 규칙은 supabase.sql 참고.
 
-const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+const SDK = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 
 export async function initCloud(config, { onUser, onRemote, onError }) {
-  const [{ initializeApp }, auth, fs] = await Promise.all([
-    import(SDK + 'firebase-app.js'),
-    import(SDK + 'firebase-auth.js'),
-    import(SDK + 'firebase-firestore.js'),
-  ]);
-
-  const app = initializeApp(config);
-  const authInst = auth.getAuth(app);
-  const db = fs.getFirestore(app);
-  let ref = null;
-  let unsubscribe = null;
-
-  auth.onAuthStateChanged(authInst, (user) => {
-    if (unsubscribe) { unsubscribe(); unsubscribe = null; }
-    ref = user ? fs.doc(db, 'users', user.uid) : null;
-    onUser(user);
-    if (!ref) return;
-    unsubscribe = fs.onSnapshot(
-      ref,
-      (snap) => {
-        // 내가 방금 보낸 변경이 되돌아온 것이면 무시 (서버 확인 후 다시 옴)
-        if (snap.metadata.hasPendingWrites) return;
-        onRemote(snap.exists() ? snap.data() : null);
-      },
-      (err) => onError(err),
-    );
+  const { createClient } = await import(SDK);
+  const sb = createClient(config.url, config.anonKey, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' },
   });
 
+  let uid = null;
+  let channel = null;
+
+  async function fetchDoc() {
+    if (!uid) return;
+    const { data, error } = await sb.from('planners').select('doc').eq('user_id', uid).maybeSingle();
+    if (error) { onError(error); return; }
+    onRemote(data && data.doc ? data.doc : null);
+  }
+
+  function setUser(user) {
+    const next = user ? user.id : null;
+    if (next === uid) return;
+    if (channel) { sb.removeChannel(channel); channel = null; }
+    uid = next;
+    onUser(user ? { uid: user.id, displayName: '', email: user.email || '', photoURL: '' } : null);
+    if (!uid) return;
+    channel = sb
+      .channel('planner-' + uid)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'planners', filter: 'user_id=eq.' + uid }, () => fetchDoc())
+      .subscribe();
+    fetchDoc();
+  }
+
+  sb.auth.onAuthStateChange((_event, session) => {
+    // 콜백 안에서 바로 다른 Supabase 호출을 하면 멈출 수 있어서 한 박자 뒤에 처리
+    setTimeout(() => setUser(session ? session.user : null), 0);
+  });
+
+  // 다른 탭에서 돌아왔을 때 놓친 변경 다시 읽기
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') fetchDoc(); });
+
+  const { data } = await sb.auth.getSession();
+  setUser(data && data.session ? data.session.user : null);
+
+  async function rpc(ops) {
+    const { error } = await sb.rpc('apply_planner_ops', { ops });
+    if (error) throw error;
+  }
+
   return {
-    async signIn() {
-      const provider = new auth.GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      try {
-        await auth.signInWithPopup(authInst, provider);
-      } catch (err) {
-        if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment')) {
-          await auth.signInWithRedirect(authInst, provider);
-        } else if (!(err && (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request'))) {
-          throw err;
-        }
-      }
+    // 로그인 링크(와 6자리 코드)를 이메일로 보내기
+    async sendLoginEmail(email) {
+      const redirect = location.origin + location.pathname;
+      const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirect, shouldCreateUser: true } });
+      if (error) throw error;
     },
-    signOut() {
-      return auth.signOut(authInst);
+    async verifyCode(email, token) {
+      const { error } = await sb.auth.verifyOtp({ email, token, type: 'email' });
+      if (error) throw error;
+    },
+    async signOut() {
+      await sb.auth.signOut();
     },
     // 처음 로그인: 문서 전체 만들기
     async create(doc) {
-      if (!ref) return;
-      await fs.setDoc(ref, doc, { merge: true });
+      const ops = [{ path: ['v'], value: doc.v }];
+      Object.keys(doc).forEach((g) => {
+        if (g === 'v') return;
+        Object.keys(doc[g]).forEach((k) => ops.push({ path: [g, k], value: doc[g][k] }));
+      });
+      await rpc(ops);
     },
     // 바뀐 칸만 보내기: ops = [{ path: [그룹, 키], value } | { path, del: true }]
     async update(ops) {
-      if (!ref || !ops.length) return;
-      const args = [];
-      ops.forEach((op) => {
-        args.push(new fs.FieldPath(op.path[0], op.path[1]), op.del ? fs.deleteField() : op.value);
-      });
-      await fs.updateDoc(ref, ...args);
+      if (ops.length) await rpc(ops);
     },
-    // 기기 목록은 따로 갱신 (플래너 내용과 섞이지 않게)
     async touchDevice(id, info) {
-      if (!ref) return;
-      await fs.setDoc(ref, { devices: { [id]: info } }, { merge: true });
+      await rpc([{ path: ['devices', id], value: info }]);
     },
   };
 }
