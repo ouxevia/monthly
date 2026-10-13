@@ -396,3 +396,17 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
   .print-host { position: static; width: auto; height: auto; overflow: visible; }
   .print-sheet { page-break-inside: avoid; break-inside: avoid; }
 }
+
+/* ---------- 새로고침 · 달 넘기기 · 테마 묶음 ---------- */
+.top-actions { display: flex; align-items: center; gap: 8px; align-self: flex-end; }
+.top-actions .account-pill { align-self: auto; }
+.refresh-btn { min-height: 34px; border-radius: 17px; gap: 5px; }
+.month-btn.on { color: var(--month-on-ink, #2F2B27); }
+.pick-group { margin: 6px 2px 0; font-size: calc(16px * var(--k)); font-weight: 400; }
+.pick-group small { font-size: calc(12px * var(--k)); color: var(--hint); margin-left: 6px; }
+.cal.slide-next { animation: slide-next 0.28s ease-out; }
+.cal.slide-prev { animation: slide-prev 0.28s ease-out; }
+@keyframes slide-next { from { transform: translateX(40px); opacity: 0.3; } to { transform: none; opacity: 1; } }
+@keyframes slide-prev { from { transform: translateX(-40px); opacity: 0.3; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .cal.slide-next, .cal.slide-prev { animation: none; } }
+@media (max-width: 900px) { .top-actions { align-self: flex-start; } }

@@ -1,4 +1,4 @@
-import { THEMES, STYLES, FONTS, MONTH_NAMES, WEEKDAYS, WEEKDAYS_KO, holidayOf } from './data.js';
+import { THEMES, THEME_GROUPS, STYLES, FONTS, MONTH_NAMES, WEEKDAYS, WEEKDAYS_KO, holidayOf, inkOn } from './data.js';
 import { supabaseConfig, isCloudConfigured } from './config.js';
 import { defaultData, normalize, loadLocal, saveLocal, toPlain, newId, deviceId, deviceName, toRemote, fromRemote, diffRemote, applyOps } from './store.js';
 
@@ -69,6 +69,7 @@ const ICON = {
   palette: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 100 18c1.1 0 1.5-.8 1.5-1.5 0-.9-.7-1.3-.7-2.2 0-.8.7-1.3 1.5-1.3H17a4 4 0 004-4c0-5-4-9-9-9z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/></svg>',
   font: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20L10 4h1l6 16M6.5 14h8"/><path d="M17 20h4"/></svg>',
   printer: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>',
+  refresh: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 10-2.3 5.7"/><path d="M20 4v7h-7"/></svg>',
   moon: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>',
 };
 
@@ -97,7 +98,7 @@ function applyTheme() {
   set('--sun', st.sun); set('--sat', st.sat); set('--circle', st.circle);
   set('--today-bg', st.todayBg); set('--today-badge', st.todayBadge); set('--today-fg', st.todayFg);
   set('--font', f.family); set('--k', f.scale); set('--chip-fs', f.chip + 'px');
-  set('--accent-light', th.c[0][1]); set('--accent-deep', th.c[0][2]); set('--month-on', th.c[3][1]);
+  set('--accent-light', th.c[0][1]); set('--accent-deep', th.c[0][2]); set('--month-on', th.c[3][1]); set('--month-on-ink', inkOn(th.c[3][1]));
   set('--drop', th.c[3][1]);
   document.body.className = 'st-' + st.id + (st.dark ? ' dark' : '');
   const meta = document.querySelector('meta[name="theme-color"]');
@@ -425,12 +426,15 @@ function viewApp() {
         </div>
       </div>
       <div class="top-right">
+        <div class="top-actions">
+        <button class="btn btn-sm refresh-btn" data-act="refresh" title="최신 버전으로 새로고침">${ICON.refresh}새로고침</button>
         <button class="btn account-pill" data-act="open-account">
           ${avatar(user, initial, 'avatar-sm')}
           <span class="account-name">${esc(user.name)}</span>
           <span class="sync-dot" data-sync-dot style="background:${syncDot()}"></span>
           <span class="sub-text" data-sync-text="short">${esc(syncLabel(true))}</span>
         </button>
+        </div>
         <nav class="month-nav" aria-label="연도와 월 이동">
           <div class="year-row">
             <button class="icon-btn" data-act="prev-year" aria-label="이전 연도">${ICON.left}</button>
@@ -470,7 +474,7 @@ function viewCalendar() {
   const todosByDate = {};
   S.data.todos.forEach((t) => { (todosByDate[t.date] = todosByDate[t.date] || []).push(t); });
 
-  let html = `<div class="cal-scroll"><div class="cal weeks-${rows}" role="grid" aria-label="${y}년 ${m}월">`;
+  let html = `<div class="cal-scroll"><div class="cal weeks-${rows}${S.ui.slide ? ' slide-' + S.ui.slide : ''}" role="grid" aria-label="${y}년 ${m}월">`;
   html += '<div class="cal-head" role="row">' + WEEKDAYS.map((w, i) => `<div class="wd${i === 0 ? ' sun' : i === 6 ? ' sat' : ''}" role="columnheader">${w}</div>`).join('') + '</div>';
   for (let r = 0; r < rows; r++) {
     html += '<div class="cal-row" role="row">';
@@ -505,7 +509,8 @@ function viewChip(t) {
   const book = byId(S.data.books, t.bookId);
   const subject = byId(S.data.subjects, t.subjectId);
   const label = [subject ? subject.name : '', book ? book.name : '', t.text].filter(Boolean).join(' · ');
-  return `<div class="chip${t.done ? ' done' : ''}" data-id="${t.id}" style="background:${t.done ? col[2] : col[1]}" title="${esc(label)}">
+  const bg = t.done ? col[2] : col[1];
+  return `<div class="chip${t.done ? ' done' : ''}" data-id="${t.id}" style="background:${bg};color:${inkOn(bg)}" title="${esc(label)}">
     <button class="chip-check" data-act="toggle-done" data-id="${t.id}" aria-label="${esc(label)} ${t.done ? '완료 취소' : '완료로 표시'}" aria-pressed="${t.done}">${t.done ? ICON.check : ''}</button>
     <button class="chip-text" data-act="open-todo" data-id="${t.id}">${book ? `<b>${esc(book.name)}</b> ` : ''}${esc(t.text || (subject ? subject.name : ''))}</button>
   </div>`;
@@ -554,7 +559,7 @@ function viewPrintSheet() {
         const col = colorOf(t.subjectId);
         const book = byId(S.data.books, t.bookId);
         const subject = byId(S.data.subjects, t.subjectId);
-        return `<div class="ps-chip" style="background:${t.done ? col[2] : col[1]};color:${t.done ? '#FFFFFF' : '#2F2B27'}"><span class="ps-check">${t.done ? '✓' : '○'}</span>${book ? `<b>${esc(book.name)}</b> ` : ''}${esc(t.text || (subject ? subject.name : ''))}</div>`;
+        return `<div class="ps-chip" style="background:${t.done ? col[2] : col[1]};color:${inkOn(t.done ? col[2] : col[1])}"><span class="ps-check">${t.done ? '✓' : '○'}</span>${book ? `<b>${esc(book.name)}</b> ` : ''}${esc(t.text || (subject ? subject.name : ''))}</div>`;
       }).join('') + (over ? `<div class="ps-more">+${list.length - shown.length}개 더</div>` : '');
       grid += `<div class="ps-cell" style="height:${rowH}px">
         <div class="ps-cell-head">
@@ -657,7 +662,7 @@ function viewLegend() {
   }).join('');
   return `<footer class="legend">
     <span class="sub-text">Category1</span>${items}
-    <span class="sub-text legend-help">칩 드래그 = 날짜 이동 (터치는 길게 눌러서) · 동그라미 = 완료 · 왼쪽 칸 미완료 / 오른쪽 칸 완료</span>
+    <span class="sub-text legend-help">옆으로 밀기 = 다음 달 · 칩 드래그 = 날짜 이동 (터치는 길게 눌러서) · 동그라미 = 완료 · 왼쪽 칸 미완료 / 오른쪽 칸 완료</span>
   </footer>`;
 }
 
@@ -687,7 +692,7 @@ function viewTodoModal() {
   const subjects = S.data.subjects.map((s) => {
     const c = colorOf(s.id);
     const on = dr.subjectId === s.id;
-    return `<button class="pill" data-act="pick-subject" data-id="${s.id}" aria-pressed="${on}" style="background:${on ? c[2] : c[1]};border-color:${on ? c[2] : c[1]};color:${on ? '#FFFFFF' : '#2F2B27'}">${esc(s.name)}</button>`;
+    return `<button class="pill" data-act="pick-subject" data-id="${s.id}" aria-pressed="${on}" style="background:${on ? c[2] : c[1]};border-color:${on ? c[2] : c[1]};color:${inkOn(on ? c[2] : c[1])}">${esc(s.name)}</button>`;
   }).join('') || '<span class="hint">등록된 과목이 없어요. 카테고리에서 과목을 추가하세요.</span>';
 
   let books;
@@ -697,7 +702,7 @@ function viewTodoModal() {
     const list = S.data.books.filter((b) => b.subjectId === dr.subjectId);
     books = '<div class="row-wrap">' + list.map((b) => {
       const on = dr.bookId === b.id;
-      return `<button class="tag-btn${on ? ' on' : ''}" data-act="pick-book" data-id="${b.id}" aria-pressed="${on}" style="${on ? `background:${col[1]};border-color:${col[2]};color:#2F2B27` : ''}">${esc(b.name)}</button>`;
+      return `<button class="tag-btn${on ? ' on' : ''}" data-act="pick-book" data-id="${b.id}" aria-pressed="${on}" style="${on ? `background:${col[1]};border-color:${col[2]};color:${inkOn(col[1])}` : ''}">${esc(b.name)}</button>`;
     }).join('') + (list.length ? '' : '<span class="hint">이 과목에 등록된 문제집이 없어요.</span>') +
       '<button class="link-btn" data-act="open-category-from-todo">+ 문제집 관리</button></div>';
   }
@@ -724,7 +729,7 @@ function viewTodoModal() {
       </div>
       <div class="preview-row">
         <span class="field-label">미리보기</span>
-        <span class="preview-chip" style="background:${dr.done ? col[2] : col[1]};color:${dr.done ? '#FFFFFF' : '#2F2B27'}"><b>${esc(book ? book.name : '')}</b> <span data-preview-text>${esc(dr.text || (dr.subjectId ? '' : '과목을 선택하세요'))}</span></span>
+        <span class="preview-chip" style="background:${dr.done ? col[2] : col[1]};color:${inkOn(dr.done ? col[2] : col[1])}"><b>${esc(book ? book.name : '')}</b> <span data-preview-text>${esc(dr.text || (dr.subjectId ? '' : '과목을 선택하세요'))}</span></span>
         <span class="sp"></span>
         <button class="btn btn-sm" data-act="toggle-draft-done">${dr.done ? '완료 취소' : '완료로 표시'}</button>
       </div>
@@ -817,14 +822,14 @@ function viewThemeModal() {
       </button>`;
     }).join('') + '</div>';
   } else if (tab === 'color') {
-    body = '<div class="pick-grid cols-4">' + THEMES.map((t) => {
+    body = THEME_GROUPS.map((g) => `<h3 class="pick-group">${esc(g.name)} <small>${esc(g.desc)}</small></h3><div class="pick-grid cols-4">` + THEMES.filter((t) => t.group === g.id).map((t) => {
       const on = st.themeId === t.id;
       const sw = t.c.map((c) => `<span class="swatch-pair" title="${esc(c[0])}"><i style="background:${c[1]}"></i><i style="background:${c[2]}"></i></span>`).join('');
       return `<button class="pick-card${on ? ' on' : ''}" data-act="pick-theme" data-id="${t.id}" aria-pressed="${on}">
         <span class="pick-name">${esc(t.name)} <small>${esc(t.desc)}</small>${on ? '<em>사용 중</em>' : ''}</span>
         <span class="swatch-row">${sw}</span>
       </button>`;
-    }).join('') + '</div>';
+    }).join('') + '</div>').join('');
   } else {
     body = '<div class="pick-grid cols-2">' + FONTS.map((f) => {
       const on = st.fontId === f.id;
@@ -834,9 +839,9 @@ function viewThemeModal() {
         <span style="font-size:${Math.round(22 * k)}px">May · TITLE : 1학기 중간고사 대비</span>
         <span class="row-wrap">
           <span style="font-size:${Math.round(16 * k)}px;font-weight:700">D-12</span>
-          <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${th.c[0][1]}"><b>쎈</b> 06단원</span>
-          <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${th.c[1][2]};color:#FFFFFF"><b>RPM</b> p.109~119</span>
-          <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${th.c[2][1]}"><b>모의고사</b> 38~40번</span>
+          <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${th.c[0][1]};color:${inkOn(th.c[0][1])}"><b>쎈</b> 06단원</span>
+          <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${th.c[1][2]};color:${inkOn(th.c[1][2])}"><b>RPM</b> p.109~119</span>
+          <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${th.c[2][1]};color:${inkOn(th.c[2][1])}"><b>모의고사</b> 38~40번</span>
         </span>
       </button>`;
     }).join('') + '</div>';
@@ -982,6 +987,16 @@ const actions = {
   'prev-year': () => { S.ui.year -= 1; render(); },
   'next-year': () => { S.ui.year += 1; render(); },
   'go-month': (el) => { S.ui.month = Number(el.dataset.m); render(); },
+  refresh: async () => {
+    // 홈 화면 앱처럼 주소창이 없을 때를 위한 새로고침: 저장된 사본 대신 최신 파일을 다시 받아옴
+    const btn = document.querySelector('.refresh-btn');
+    if (btn) btn.disabled = true;
+    const files = ['./', 'index.html', 'css/style.css', 'js/app.js', 'js/data.js', 'js/store.js', 'js/cloud.js', 'js/config.js'];
+    try {
+      await Promise.all(files.map((f) => fetch(new URL('../' + f, import.meta.url), { cache: 'reload' }).catch(() => null)));
+    } catch (e) { /* 무시 */ }
+    location.reload();
+  },
   'go-today': () => { const t = new Date(); S.ui.year = t.getFullYear(); S.ui.month = t.getMonth() + 1; render(); },
   'open-add': (el) => openModal('todo', { draft: { id: null, date: el.dataset.date, subjectId: null, bookId: null, text: '', done: false } }),
   'open-todo': (el) => {
@@ -1239,6 +1254,50 @@ async function importBackup(file) {
 // ---------------------------------------------------------------- 이벤트
 
 let suppressClick = false;
+let lastDragEnd = 0;
+
+// 다음 달 / 이전 달로 넘기기 (연도도 함께 넘어감)
+function shiftMonth(delta) {
+  let m = S.ui.month + delta;
+  let y = S.ui.year;
+  if (m > 12) { m = 1; y += 1; }
+  if (m < 1) { m = 12; y -= 1; }
+  S.ui.month = m;
+  S.ui.year = y;
+  S.ui.slide = delta > 0 ? 'next' : 'prev';
+  render();
+  S.ui.slide = null;
+}
+
+// 캘린더를 옆으로 쓸면 달 넘기기
+function bindSwipe() {
+  let start = null;
+  document.addEventListener('touchstart', (e) => {
+    const sc = e.target.closest && e.target.closest('.cal-scroll');
+    if (!sc || S.ui.modal || e.touches.length !== 1) { start = null; return; }
+    const t = e.touches[0];
+    start = { x: t.clientX, y: t.clientY, at: Date.now(), sc, left: sc.scrollLeft };
+  }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    if (!start) return;
+    const s0 = start;
+    start = null;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s0.x;
+    const dy = t.clientY - s0.y;
+    if (document.body.classList.contains('is-dragging') || Date.now() - lastDragEnd < 400) return;
+    if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6 || Date.now() - s0.at > 900) return;
+    // 좁은 화면에서 캘린더가 옆으로 스크롤될 때는, 끝까지 간 상태에서 한 번 더 밀어야 넘어감
+    const sc = s0.sc;
+    if (sc.scrollWidth > sc.clientWidth + 2) {
+      if (Math.abs(sc.scrollLeft - s0.left) > 2) return;
+      const atEnd = sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 2;
+      const atStart = sc.scrollLeft <= 2;
+      if ((dx < 0 && !atEnd) || (dx > 0 && !atStart)) return;
+    }
+    shiftMonth(dx < 0 ? 1 : -1);
+  }, { passive: true });
+}
 
 function bindEvents() {
   document.addEventListener('click', (e) => {
@@ -1271,6 +1330,11 @@ function bindEvents() {
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && S.ui.modal) { actions['close-modal'](); return; }
+    const typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+    if (S.phase === 'app' && !S.ui.modal && !typing && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      shiftMonth(e.key === 'ArrowRight' ? 1 : -1);
+      return;
+    }
     if (e.key === 'Enter' && !e.isComposing) {
       const el = e.target;
       if (el.dataset && el.dataset.enter) { e.preventDefault(); actions[el.dataset.enter](el, e); }
@@ -1287,6 +1351,7 @@ function bindEvents() {
   });
 
   bindDrag();
+  bindSwipe();
 }
 
 // 드래그로 날짜 이동: 마우스는 바로, 터치는 길게 눌러서 시작
@@ -1363,6 +1428,7 @@ function bindDrag() {
     if (!drag) return;
     if (drag.started) {
       suppressClick = true;
+      lastDragEnd = Date.now();
       setTimeout(() => { suppressClick = false; }, 0);
       const { id, over } = drag;
       cleanup();
