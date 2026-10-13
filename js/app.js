@@ -71,6 +71,7 @@ const ICON = {
   printer: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>',
   gear: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>',
   eye: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  mail: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   refresh: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 10-2.3 5.7"/><path d="M20 4v7h-7"/></svg>',
   moon: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>',
 };
@@ -396,34 +397,28 @@ function viewLogin() {
 
 function viewApp() {
   const { year: y, month: m } = S.ui;
-  const th = curTheme();
   const user = S.user || { name: '내 플래너', photo: '' };
   const initial = (user.name || 'M').charAt(0).toUpperCase();
   const title = S.data.titles[y + '-' + m] || '';
   const showGoal = settings().showGoal !== false;
 
-  let months = '';
-  for (let i = 1; i <= 12; i++) {
-    months += `<button class="month-btn${i === m ? ' on' : ''}" data-act="go-month" data-m="${i}" aria-label="${y}년 ${i}월로 이동"${i === m ? ' aria-current="date"' : ''}>${i}</button>`;
-  }
-  const dots = [0, 1, 2, 3].map((i) => `<span class="dot" style="background:${th.c[i][2]}"></span>`).join('');
-
   return `<div class="page">
     <header class="top">
-      <div class="top-left">
-        <div class="title-row">
-          <h1 class="month-title">${MONTH_NAMES[m - 1]}</h1>
-          ${showGoal ? `<div class="title-wrap">
-            <label class="title-label" for="title-input">GOAL :</label>
-            <input id="title-input" class="title-input" data-input="title" value="${esc(title)}" placeholder="이번 달 목표를 적어보세요" maxlength="60" autocomplete="off">
-          </div>` : ''}
-        </div>
-        <div class="toolbar">
-          <button class="btn" data-act="open-settings">${ICON.gear}환경설정</button>
-        </div>
+      <div class="title-row">
+        <h1 class="month-title">${MONTH_NAMES[m - 1]}</h1>
+        ${showGoal ? `<div class="title-wrap">
+          <label class="title-label" for="title-input">GOAL :</label>
+          <input id="title-input" class="title-input" data-input="title" value="${esc(title)}" placeholder="이번 달 목표를 적어보세요" maxlength="60" autocomplete="off">
+        </div>` : ''}
       </div>
       <div class="top-right">
-        <div class="top-actions">
+        <nav class="month-nav" aria-label="달 이동">
+          <button class="icon-btn nav-arrow" data-act="prev-month" aria-label="이전 달">${ICON.left}</button>
+          <span class="year-text">${y}</span>
+          <button class="icon-btn nav-arrow" data-act="next-month" aria-label="다음 달">${ICON.right}</button>
+          <button class="today-link" data-act="go-today">오늘</button>
+        </nav>
+        <button class="btn btn-sm" data-act="open-settings">${ICON.gear}환경설정</button>
         <button class="btn btn-sm refresh-btn" data-act="refresh" title="최신 버전으로 새로고침">${ICON.refresh}새로고침</button>
         <button class="btn account-pill" data-act="open-account">
           ${avatar(user, initial, 'avatar-sm')}
@@ -431,16 +426,6 @@ function viewApp() {
           <span class="sync-dot" data-sync-dot style="background:${syncDot()}"></span>
           <span class="sub-text" data-sync-text="short">${esc(syncLabel(true))}</span>
         </button>
-        </div>
-        <nav class="month-nav" aria-label="연도와 월 이동">
-          <div class="year-row">
-            <button class="icon-btn" data-act="prev-year" aria-label="이전 연도">${ICON.left}</button>
-            <span class="year-text">${y}</span>
-            <button class="icon-btn" data-act="next-year" aria-label="다음 연도">${ICON.right}</button>
-          </div>
-          <div class="month-grid">${months}</div>
-          <button class="today-link" data-act="go-today">오늘로</button>
-        </nav>
       </div>
     </header>
     ${viewCalendar()}
@@ -727,7 +712,9 @@ const SET_TABS = [
   ['font', '글씨체', 'font'],
   ['display', '화면 표시', 'eye'],
   ['export', 'A4 저장 · 인쇄', 'printer'],
+  ['contact', '관리자에게 문의', 'mail'],
 ];
+const CONTACT_CATS = ['건의사항', '오류 신고', '질문', '기타'];
 const PENDING_TABS = ['style', 'color', 'font', 'display'];
 
 function pendingOf() {
@@ -762,6 +749,7 @@ function viewSettingsModal() {
   else if (tab === 'color') body = colorBody();
   else if (tab === 'font') body = fontBody();
   else if (tab === 'display') body = displayBody();
+  else if (tab === 'contact') body = contactBody();
   else body = exportBody();
 
   let foot;
@@ -769,6 +757,10 @@ function viewSettingsModal() {
     foot = `<span class="hint small">고른 다음 <b>설정</b>을 눌러야 적용돼요</span>
       <button class="btn" data-act="close-modal">취소</button>
       <button class="btn btn-primary" data-act="apply-settings"${pendingChanged() ? '' : ' disabled'}>설정</button>`;
+  } else if (tab === 'contact') {
+    const c = contactState();
+    foot = `<span class="hint small">관리자만 볼 수 있어요</span>
+      <button class="btn btn-primary" data-act="send-contact"${c.busy ? ' disabled' : ''}>${c.busy ? '보내는 중…' : '보내기'}</button>`;
   } else if (tab === 'export') {
     const ex = S.ui.export || {};
     foot = `<button class="btn" data-act="export-print">${ICON.printer}인쇄 · PDF</button>
@@ -920,6 +912,62 @@ function displayBody() {
   </div>`;
 }
 
+function contactState() {
+  if (!S.ui.contact) S.ui.contact = { category: CONTACT_CATS[0], message: '', email: S.user ? S.user.email : '', busy: false, done: '', error: '', list: null, listError: '' };
+  return S.ui.contact;
+}
+
+async function loadContactList() {
+  const c = contactState();
+  if (!S.cloud || !S.user) return;
+  try {
+    c.list = await S.cloud.listFeedback();
+    c.listError = '';
+  } catch (err) {
+    console.error('[feedback]', err);
+    c.listError = '보낸 문의를 불러오지 못했어요.';
+  }
+  if (S.ui.modal === 'settings' && S.ui.setTab === 'contact') renderSoft();
+}
+
+function contactBody() {
+  const c = contactState();
+  const cats = CONTACT_CATS.map((k) => `<button class="btn btn-sm cat-chip${c.category === k ? ' on' : ''}" data-act="contact-cat" data-cat="${esc(k)}" aria-pressed="${c.category === k}">${esc(k)}</button>`).join('');
+  let list = '';
+  if (!S.user) {
+    list = '<p class="hint small" style="margin:0">로그인하면 내가 보낸 문의와 관리자 답변을 여기에서 볼 수 있어요.</p>';
+  } else if (c.listError) {
+    list = `<p class="hint small" style="margin:0">${esc(c.listError)}</p>`;
+  } else if (!c.list) {
+    list = '<p class="hint small" style="margin:0">불러오는 중…</p>';
+  } else if (!c.list.length) {
+    list = '<p class="hint small" style="margin:0">아직 보낸 문의가 없어요.</p>';
+  } else {
+    list = c.list.map((f) => {
+      const d = new Date(f.created_at);
+      return `<div class="fb-row">
+        <div class="fb-head"><span class="fb-cat">${esc(f.category)}</span><span class="hint small">${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}</span>
+          <span class="fb-state${f.reply ? ' done' : ''}">${f.reply ? '답변 완료' : '답변 대기'}</span></div>
+        <div class="fb-msg">${esc(f.message)}</div>
+        ${f.reply ? `<div class="fb-reply"><b>관리자 답변</b>${esc(f.reply)}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+  return `<p class="hint" style="margin:0">건의사항, 불편한 점, 오류를 자유롭게 남겨 주세요. 관리자가 확인하고 답변을 달면 아래 <b>내가 보낸 문의</b>에서 볼 수 있어요.</p>
+    <div class="field-group"><span class="field-label">종류</span><div class="row-wrap">${cats}</div></div>
+    <div class="field-group">
+      <label class="field-label" for="contact-msg">내용</label>
+      <textarea id="contact-msg" class="field contact-text" data-input="contact-msg" maxlength="2000" rows="6" placeholder="예: 주간 보기도 있으면 좋겠어요 / 아이패드에서 드래그가 잘 안 돼요">${esc(c.message)}</textarea>
+    </div>
+    <div class="field-group">
+      <label class="field-label" for="contact-email">답변 받을 이메일 (선택)</label>
+      <input id="contact-email" class="field" type="email" data-input="contact-email" value="${esc(c.email)}" placeholder="name@email.com" autocomplete="email">
+    </div>
+    ${c.done ? `<div class="notice notice-ok">${esc(c.done)}</div>` : ''}
+    ${c.error ? `<p class="error-text" style="text-align:left">${esc(c.error)}</p>` : ''}
+    <div class="field-group"><span class="field-label">내가 보낸 문의</span>${list}</div>`;
+}
+
 function exportBody() {
   const { year: y, month: m } = S.ui;
   const ex = S.ui.export || {};
@@ -978,6 +1026,7 @@ function openSettings(tab, opts) {
   if (tab === 'export') extra.export = {};
   openModal('settings', extra);
   if (tab === 'export') setTimeout(makeExportImage, 30);
+  if (tab === 'contact') { contactState().done = ''; contactState().error = ''; loadContactList(); }
 }
 
 function closeModal() {
@@ -1048,6 +1097,30 @@ const actions = {
     await S.cloud.signOut();
   },
   'sync-now': () => scheduleCloudSave(0),
+  'contact-cat': (el) => { contactState().category = el.dataset.cat; render(); },
+  'send-contact': async () => {
+    const c = contactState();
+    const message = (c.message || '').trim();
+    if (message.length < 2) { c.error = '내용을 적어 주세요.'; c.done = ''; render(); return; }
+    if (!S.cloud) { c.error = '지금은 서버에 연결되어 있지 않아서 보낼 수 없어요. 인터넷 연결을 확인한 뒤 새로고침해 주세요.'; render(); return; }
+    c.busy = true; c.error = ''; c.done = '';
+    render();
+    try {
+      await S.cloud.sendFeedback({ category: c.category, message, email: (c.email || '').trim() || null, device: deviceName() });
+      c.message = '';
+      c.done = '보냈어요! 소중한 의견 고마워요.';
+      loadContactList();
+    } catch (err) {
+      console.error('[feedback]', err);
+      c.error = /relation|does not exist|schema cache/i.test(err.message || '')
+        ? '문의 기능이 아직 서버에 준비되지 않았어요. (관리자: supabase.sql의 5번을 실행해 주세요)'
+        : '보내지 못했어요. 잠시 후 다시 시도해 주세요. (' + (err.message || err) + ')';
+    }
+    c.busy = false;
+    render();
+  },
+  'prev-month': () => shiftMonth(-1),
+  'next-month': () => shiftMonth(1),
   'prev-year': () => { S.ui.year -= 1; render(); },
   'next-year': () => { S.ui.year += 1; render(); },
   'go-month': (el) => { S.ui.month = Number(el.dataset.m); render(); },
@@ -1399,6 +1472,10 @@ function bindEvents() {
     if (kind === 'title') {
       S.data.titles[S.ui.year + '-' + S.ui.month] = el.value;
       commit({ render: false });
+    } else if (kind === 'contact-msg') {
+      contactState().message = el.value;
+    } else if (kind === 'contact-email') {
+      contactState().email = el.value;
     } else if (kind === 'draft-text' && S.ui.draft) {
       S.ui.draft.text = el.value;
       const p = document.querySelector('[data-preview-text]');

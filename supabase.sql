@@ -61,3 +61,36 @@ begin
   alter publication supabase_realtime add table public.planners;
 exception when duplicate_object then null;
 end $$;
+
+-- 5) 관리자에게 문의 (건의사항 · 오류 신고)
+--    사용자는 보내기만 하고, 로그인한 사용자는 자기가 보낸 문의와 답변만 볼 수 있음.
+--    관리자는 대시보드 Table Editor → feedback 에서 모두 보고 reply 칸에 답변을 적으면 됨.
+create table if not exists public.feedback (
+  id bigint generated always as identity primary key,
+  user_id uuid default auth.uid() references auth.users (id) on delete set null,
+  email text check (email is null or char_length(email) <= 200),
+  category text not null default '건의사항' check (char_length(category) <= 20),
+  message text not null check (char_length(message) between 1 and 2000),
+  device text check (device is null or char_length(device) <= 100),
+  reply text,
+  replied_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+alter table public.feedback enable row level security;
+
+drop policy if exists "send feedback" on public.feedback;
+create policy "send feedback" on public.feedback
+  for insert to anon, authenticated
+  with check (
+    reply is null and replied_at is null
+    and ((auth.uid() is null and user_id is null) or user_id = auth.uid())
+  );
+
+drop policy if exists "read own feedback" on public.feedback;
+create policy "read own feedback" on public.feedback
+  for select to authenticated
+  using (user_id = auth.uid());
+
+grant insert on public.feedback to anon, authenticated;
+grant select on public.feedback to authenticated;

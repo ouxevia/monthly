@@ -88,6 +88,20 @@ export async function initCloud(config, { onUser, onRemote, onError, onRecovery 
       const { error } = await sb.auth.updateUser({ password });
       if (error) throw error;
     },
+    // 관리자에게 문의 보내기 / 내가 보낸 문의와 답변 보기
+    async sendFeedback(row) {
+      const { error } = await sb.from('feedback').insert(row);
+      if (error) throw error;
+    },
+    async listFeedback() {
+      if (!uid) return [];
+      const { data, error } = await sb.from('feedback')
+        .select('id, category, message, reply, replied_at, created_at')
+        .order('created_at', { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      return data || [];
+    },
     async signOut() {
       await sb.auth.signOut();
     },
