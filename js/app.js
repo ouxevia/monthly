@@ -69,6 +69,8 @@ const ICON = {
   palette: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 100 18c1.1 0 1.5-.8 1.5-1.5 0-.9-.7-1.3-.7-2.2 0-.8.7-1.3 1.5-1.3H17a4 4 0 004-4c0-5-4-9-9-9z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/></svg>',
   font: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20L10 4h1l6 16M6.5 14h8"/><path d="M17 20h4"/></svg>',
   printer: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></svg>',
+  gear: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>',
+  eye: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   refresh: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 10-2.3 5.7"/><path d="M20 4v7h-7"/></svg>',
   moon: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>',
 };
@@ -398,6 +400,7 @@ function viewApp() {
   const user = S.user || { name: '내 플래너', photo: '' };
   const initial = (user.name || 'M').charAt(0).toUpperCase();
   const title = S.data.titles[y + '-' + m] || '';
+  const showGoal = settings().showGoal !== false;
 
   let months = '';
   for (let i = 1; i <= 12; i++) {
@@ -409,20 +412,14 @@ function viewApp() {
     <header class="top">
       <div class="top-left">
         <div class="title-row">
-          <div class="month-badge"><span class="badge-circle" aria-hidden="true"></span><span class="badge-year">${y}</span><span class="badge-month">${MONTH_NAMES[m - 1]}</span></div>
-          <div class="title-wrap">
-            <label class="title-label" for="title-input">TITLE :</label>
-            <input id="title-input" class="title-input" data-input="title" value="${esc(title)}" placeholder="이번 달 제목을 적어보세요" maxlength="60" autocomplete="off">
-          </div>
+          <h1 class="month-title">${MONTH_NAMES[m - 1]}</h1>
+          ${showGoal ? `<div class="title-wrap">
+            <label class="title-label" for="title-input">GOAL :</label>
+            <input id="title-input" class="title-input" data-input="title" value="${esc(title)}" placeholder="이번 달 목표를 적어보세요" maxlength="60" autocomplete="off">
+          </div>` : ''}
         </div>
         <div class="toolbar">
-          <button class="btn" data-act="open-exam">${ICON.exam}시험일 설정</button>
-          <button class="btn" data-act="open-category">${ICON.tag}카테고리</button>
-          <button class="btn" data-act="open-theme" data-tab="style">${ICON.layout}캘린더 스타일 · ${esc(curStyle().name)}</button>
-          <button class="btn" data-act="open-theme" data-tab="color">${ICON.palette}과목 색상 · ${esc(th.name)}<span class="dots">${dots}</span></button>
-          <button class="btn" data-act="open-theme" data-tab="font">${ICON.font}글씨체 · ${esc(curFont().name)}</button>
-          <button class="btn" data-act="toggle-night" aria-pressed="${isNight()}">${ICON.moon}${isNight() ? '나이트모드 끄기' : '나이트모드'}</button>
-          <button class="btn" data-act="open-export">${ICON.printer}A4 저장 · 인쇄</button>
+          <button class="btn" data-act="open-settings">${ICON.gear}환경설정</button>
         </div>
       </div>
       <div class="top-right">
@@ -449,7 +446,7 @@ function viewApp() {
     ${viewCalendar()}
     ${viewLegend()}
   </div>
-  ${S.ui.modal === 'export' ? `<div class="print-host" aria-hidden="true">${viewPrintSheet()}</div>` : ''}`;
+  ${S.ui.modal === 'settings' && S.ui.setTab === 'export' ? `<div class="print-host" aria-hidden="true">${viewPrintSheet()}</div>` : ''}`;
 }
 
 function avatar(user, initial, cls) {
@@ -582,31 +579,12 @@ function viewPrintSheet() {
 
   return `<div class="print-sheet st-${st.id}" style="width:${SHEET_W}px;height:${SHEET_H}px;padding:${PAD}px;${vars}">
     <div class="ps-header" style="height:${HEAD}px">
-      <div class="ps-badge"><span class="ps-circle"></span><span class="ps-year">${y}</span><span class="ps-month">${MONTH_NAMES[m - 1]}</span></div>
-      <div class="ps-title"><span class="ps-title-label">TITLE :</span> ${esc(S.data.titles[y + '-' + m] || '')}</div>
+      <div class="ps-month">${MONTH_NAMES[m - 1]}</div>
+      <div class="ps-title">${settings().showGoal !== false ? `<span class="ps-title-label">GOAL :</span> ${esc(S.data.titles[y + '-' + m] || '')}` : ''}</div>
       <div class="ps-exams">${monthExams.map((e) => `<span>${esc(e.name)} · ${Number(e.date.slice(5, 7))}/${Number(e.date.slice(8))}</span>`).join('')}</div>
     </div>
     <div class="ps-cal">${grid}</div>
     <div class="ps-legend">${legend}<span class="ps-mark">○ 미완료 · ✓ 완료</span></div>
-  </div>`;
-}
-
-function viewExportModal() {
-  const { year: y, month: m } = S.ui;
-  const ex = S.ui.export || {};
-  const preview = ex.url
-    ? `<img class="export-img" src="${ex.url}" alt="${y}년 ${m}월 A4 미리보기">`
-    : `<div class="notice export-wait">${ex.error ? esc(ex.error) : 'A4 이미지를 만드는 중…'}</div>`;
-  return `<div class="modal modal-export" role="dialog" aria-modal="true" aria-label="A4 저장 · 인쇄">
-    ${modalHead(`A4 저장 · 인쇄 <span class="hint small">${y}년 ${m}월</span>`)}
-    <div class="modal-scroll">
-      ${preview}
-      <p class="hint small" style="margin:0">A4 가로 한 장으로 만들어요. 칸에 다 안 들어가는 할 일은 "+N개 더"로 표시돼요.${isNight() ? ' 나이트모드는 잉크 절약을 위해 흰 배경으로 저장돼요.' : ''}</p>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" data-act="export-print">${ICON.printer}인쇄 · PDF</button>
-      <button class="btn btn-primary" data-act="export-save"${ex.blob ? '' : ' disabled'}>이미지 저장</button>
-    </div>
   </div>`;
 }
 
@@ -652,7 +630,7 @@ async function makeExportImage() {
     console.error('[export]', err);
     job.error = '이미지를 만들지 못했어요. "인쇄 · PDF"로 저장해 보세요. (' + (err.message || err) + ')';
   }
-  if (S.ui.modal === 'export' && S.ui.export === job) render();
+  if (S.ui.modal === 'settings' && S.ui.setTab === 'export' && S.ui.export === job) render();
 }
 
 function viewLegend() {
@@ -673,11 +651,8 @@ function viewModal() {
   if (!m) return '';
   let inner = '';
   if (m === 'todo') inner = viewTodoModal();
-  else if (m === 'category') inner = viewCategoryModal();
-  else if (m === 'theme') inner = viewThemeModal();
-  else if (m === 'exam') inner = viewExamModal();
+  else if (m === 'settings') inner = viewSettingsModal();
   else if (m === 'account') inner = viewAccountModal();
-  else if (m === 'export') inner = viewExportModal();
   return `<div class="overlay${m === 'account' ? ' overlay-top' : ''}" data-act="overlay">${inner}</div>`;
 }
 
@@ -742,7 +717,96 @@ function viewTodoModal() {
   </div>`;
 }
 
-function viewCategoryModal() {
+// ---------------------------------------------------------------- 환경설정
+
+const SET_TABS = [
+  ['exam', '시험일', 'exam'],
+  ['category', '카테고리', 'tag'],
+  ['style', '캘린더 스타일', 'layout'],
+  ['color', '과목 색상', 'palette'],
+  ['font', '글씨체', 'font'],
+  ['display', '화면 표시', 'eye'],
+  ['export', 'A4 저장 · 인쇄', 'printer'],
+];
+const PENDING_TABS = ['style', 'color', 'font', 'display'];
+
+function pendingOf() {
+  if (!S.ui.pending) {
+    const st = settings();
+    S.ui.pending = { styleId: st.styleId, prevStyle: st.prevStyle, themeId: st.themeId, fontId: st.fontId, showGoal: st.showGoal !== false };
+  }
+  return S.ui.pending;
+}
+
+function pendingChanged() {
+  const p = S.ui.pending;
+  if (!p) return false;
+  const st = settings();
+  return p.styleId !== st.styleId || p.themeId !== st.themeId || p.fontId !== st.fontId || p.showGoal !== (st.showGoal !== false);
+}
+
+function pickMark(isPending, isCurrent) {
+  if (isPending && isCurrent) return '<em>사용 중</em>';
+  if (isPending) return '<em class="em-new">선택됨</em>';
+  if (isCurrent) return '<em class="em-old">지금 사용 중</em>';
+  return '';
+}
+
+function viewSettingsModal() {
+  const tab = S.ui.setTab || 'exam';
+  const nav = SET_TABS.map(([id, name, icon]) => `<button class="set-tab${tab === id ? ' on' : ''}" role="tab" aria-selected="${tab === id}" data-act="set-tab" data-tab="${id}">${ICON[icon]}<span>${name}</span></button>`).join('');
+  let body = '';
+  if (tab === 'exam') body = examBody();
+  else if (tab === 'category') body = categoryBody();
+  else if (tab === 'style') body = styleBody();
+  else if (tab === 'color') body = colorBody();
+  else if (tab === 'font') body = fontBody();
+  else if (tab === 'display') body = displayBody();
+  else body = exportBody();
+
+  let foot;
+  if (PENDING_TABS.includes(tab)) {
+    foot = `<span class="hint small">고른 다음 <b>설정</b>을 눌러야 적용돼요</span>
+      <button class="btn" data-act="close-modal">취소</button>
+      <button class="btn btn-primary" data-act="apply-settings"${pendingChanged() ? '' : ' disabled'}>설정</button>`;
+  } else if (tab === 'export') {
+    const ex = S.ui.export || {};
+    foot = `<button class="btn" data-act="export-print">${ICON.printer}인쇄 · PDF</button>
+      <button class="btn btn-primary" data-act="export-save"${ex.blob ? '' : ' disabled'}>이미지 저장</button>`;
+  } else {
+    foot = `<span class="hint small">바로 저장돼요</span><button class="btn btn-primary" data-act="close-modal">닫기</button>`;
+  }
+  const title = SET_TABS.find((t) => t[0] === tab)[1];
+  return `<div class="modal modal-xl settings-modal" role="dialog" aria-modal="true" aria-label="환경설정">
+    <div class="modal-head"><h2>환경설정 <span class="hint small">· ${title}</span></h2><button class="icon-btn" data-act="close-modal" aria-label="닫기">${ICON.close}</button></div>
+    <div class="set-layout">
+      <nav class="set-nav" role="tablist" aria-label="환경설정 메뉴">${nav}</nav>
+      <div class="set-body modal-scroll">${body}</div>
+    </div>
+    <div class="modal-foot">${foot}</div>
+  </div>`;
+}
+
+function examBody() {
+  const today = todayKey();
+  const rows = S.data.exams.slice().sort((a, b) => (a.date < b.date ? -1 : 1)).map((e) => {
+    const diff = dayNum(e.date) - dayNum(today);
+    return `<div class="exam-row${diff < 0 ? ' past' : ''}">
+      <span class="exam-dday">${diff < 0 ? '종료' : ddayText(diff)}</span>
+      <span class="exam-info"><span>${esc(e.name)}</span><span class="hint small">${dateLabel(e.date)}</span></span>
+      <button class="icon-btn" data-act="delete-exam" data-id="${e.id}" aria-label="${esc(e.name)} 삭제">${ICON.x}</button>
+    </div>`;
+  }).join('') || '<div class="notice">아직 등록된 시험이 없어요. 아래에서 시험을 추가하면 캘린더에 D-day가 표시돼요.</div>';
+  return `<p class="hint small" style="margin:0">캘린더의 각 날짜에는 그 날 이후 가장 가까운 시험의 D-day가 표시돼요.</p>
+    <div class="exam-list">${rows}</div>
+    <div class="exam-add">
+      <div class="field-group grow"><label class="field-label" for="exam-name">시험 이름</label><input id="exam-name" class="field" data-enter="add-exam" placeholder="예: 2학기 기말고사" maxlength="30" autocomplete="off"></div>
+      <div class="field-group"><label class="field-label" for="exam-date">날짜</label><input id="exam-date" class="field" type="date" data-enter="add-exam"></div>
+      <button class="btn" data-act="add-exam">추가</button>
+    </div>`;
+}
+
+function categoryBody() {
   const subId = S.ui.catSubject;
   const sub = byId(S.data.subjects, subId);
   const th = curTheme();
@@ -772,10 +836,7 @@ function viewCategoryModal() {
     right = `<div class="color-row"><span class="hint small">과목 색</span>${swatches}</div>${books}`;
   }
   const tint = sub ? colorOf(sub.id)[1] + (isNight() ? '22' : '55') : 'var(--soft)';
-
-  return `<div class="modal modal-wide" role="dialog" aria-modal="true" aria-label="카테고리 관리">
-    ${modalHead('카테고리 관리', 'close-category')}
-    <div class="cat-grid">
+  return `<div class="cat-grid">
       <section class="cat-panel">
         <h3>Category1 <span class="hint small">과목 · 색은 과목 색상 테마에서 자동 지정</span></h3>
         <div class="cat-list">${subjects}</div>
@@ -792,91 +853,81 @@ function viewCategoryModal() {
           <button class="btn" data-act="add-book"${sub ? '' : ' disabled'}>추가</button>
         </div>
       </section>
-    </div>
-  </div>`;
-}
-
-function viewThemeModal() {
-  const tab = S.ui.themeTab;
-  const th = curTheme();
-  const st = settings();
-  const tabs = [['style', '캘린더 스타일'], ['color', '과목 색상'], ['font', '글씨체']]
-    .map(([id, name]) => `<button class="tab${tab === id ? ' on' : ''}" role="tab" aria-selected="${tab === id}" data-act="tab" data-tab="${id}">${name}</button>`).join('');
-  const hint = tab === 'style' ? '캘린더 배경 · 선 · 색감이 바뀌어요' : tab === 'font' ? '사이트 전체 글씨가 이 글씨체 하나로 통일돼요' : '과목마다 색이 자동 지정 · 위 = 미완료, 아래 = 완료';
-
-  let body = '';
-  if (tab === 'style') {
-    body = '<div class="pick-grid cols-3">' + STYLES.map((s) => {
-      let mini = '';
-      for (let z = 0; z < 21; z++) {
-        const col = z % 7;
-        mini += `<span class="mini-cell" style="border-color:${s.line}"><span style="color:${col === 0 ? s.sun : col === 6 ? s.sat : s.ink}">${z + 3}</span><i style="background:${z % 3 === 0 ? th.c[z % 8][2] : th.c[z % 8][1]}"></i><i style="background:${z % 2 === 0 ? th.c[(z + 3) % 8][1] : 'transparent'}"></i></span>`;
-      }
-      const on = st.styleId === s.id;
-      return `<button class="pick-card${on ? ' on' : ''}" data-act="pick-style" data-id="${s.id}" aria-pressed="${on}">
-        <span class="style-preview st-${s.id}" style="color:${s.ink}">
-          <span class="sp-title"><small style="color:${s.sub}">2026</small> May <span>TITLE : 중간고사</span></span>
-          <span class="mini-cal" style="border:${s.outer};border-radius:${s.radius}px;background:${s.cellBg}">${mini}</span>
-        </span>
-        <span class="pick-name">${esc(s.name)} <small>${esc(s.desc)}</small>${on ? '<em>사용 중</em>' : ''}</span>
-      </button>`;
-    }).join('') + '</div>';
-  } else if (tab === 'color') {
-    body = THEME_GROUPS.map((g) => `<h3 class="pick-group">${esc(g.name)} <small>${esc(g.desc)}</small></h3><div class="pick-grid cols-4">` + THEMES.filter((t) => t.group === g.id).map((t) => {
-      const on = st.themeId === t.id;
-      const sw = t.c.map((c) => `<span class="swatch-pair" title="${esc(c[0])}"><i style="background:${c[1]}"></i><i style="background:${c[2]}"></i></span>`).join('');
-      return `<button class="pick-card${on ? ' on' : ''}" data-act="pick-theme" data-id="${t.id}" aria-pressed="${on}">
-        <span class="pick-name">${esc(t.name)} <small>${esc(t.desc)}</small>${on ? '<em>사용 중</em>' : ''}</span>
-        <span class="swatch-row">${sw}</span>
-      </button>`;
-    }).join('') + '</div>').join('');
-  } else {
-    body = '<div class="pick-grid cols-2">' + FONTS.map((f) => {
-      const on = st.fontId === f.id;
-      const k = f.scale;
-      return `<button class="pick-card font-card${on ? ' on' : ''}" data-act="pick-font" data-id="${f.id}" aria-pressed="${on}" style="font-family:${f.family}">
-        <span class="pick-name" style="font-size:${Math.round(20 * k)}px">${esc(f.name)} <small style="font-size:${Math.round(12 * k)}px">${esc(f.desc)}</small>${on ? '<em>사용 중</em>' : ''}</span>
-        <span style="font-size:${Math.round(22 * k)}px">May · TITLE : 1학기 중간고사 대비</span>
-        <span class="row-wrap">
-          <span style="font-size:${Math.round(16 * k)}px;font-weight:700">D-12</span>
-          <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${th.c[0][1]};color:${inkOn(th.c[0][1])}"><b>쎈</b> 06단원</span>
-          <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${th.c[1][2]};color:${inkOn(th.c[1][2])}"><b>RPM</b> p.109~119</span>
-          <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${th.c[2][1]};color:${inkOn(th.c[2][1])}"><b>모의고사</b> 38~40번</span>
-        </span>
-      </button>`;
-    }).join('') + '</div>';
-  }
-
-  return `<div class="modal modal-xl" role="dialog" aria-modal="true" aria-label="테마 설정">
-    <div class="modal-head">
-      <div class="tabs" role="tablist">${tabs}</div>
-      <span class="hint small theme-hint">${hint}</span>
-      <button class="icon-btn" data-act="close-modal" aria-label="닫기">${ICON.close}</button>
-    </div>
-    <div class="modal-scroll">${body}</div>
-  </div>`;
-}
-
-function viewExamModal() {
-  const today = todayKey();
-  const rows = S.data.exams.slice().sort((a, b) => (a.date < b.date ? -1 : 1)).map((e) => {
-    const diff = dayNum(e.date) - dayNum(today);
-    return `<div class="exam-row${diff < 0 ? ' past' : ''}">
-      <span class="exam-dday">${diff < 0 ? '종료' : ddayText(diff)}</span>
-      <span class="exam-info"><span>${esc(e.name)}</span><span class="hint small">${dateLabel(e.date)}</span></span>
-      <button class="icon-btn" data-act="delete-exam" data-id="${e.id}" aria-label="${esc(e.name)} 삭제">${ICON.x}</button>
     </div>`;
-  }).join('') || '<div class="notice">아직 등록된 시험이 없어요. 아래에서 시험을 추가하면 캘린더에 D-day가 표시돼요.</div>';
-  return `<div class="modal" role="dialog" aria-modal="true" aria-label="시험일 설정">
-    ${modalHead('시험일 설정')}
-    <p class="hint small" style="margin:-6px 0 0">캘린더의 각 날짜에는 그 날 이후 가장 가까운 시험의 D-day가 표시돼요.</p>
-    <div class="modal-scroll exam-list">${rows}</div>
-    <div class="exam-add">
-      <div class="field-group grow"><label class="field-label" for="exam-name">시험 이름</label><input id="exam-name" class="field" data-enter="add-exam" placeholder="예: 2학기 기말고사" maxlength="30" autocomplete="off"></div>
-      <div class="field-group"><label class="field-label" for="exam-date">날짜</label><input id="exam-date" class="field" type="date" data-enter="add-exam"></div>
-      <button class="btn" data-act="add-exam">추가</button>
-    </div>
+}
+
+function styleBody() {
+  const p = pendingOf();
+  const th = THEMES.find((t) => t.id === p.themeId) || curTheme();
+  return '<div class="pick-grid cols-3">' + STYLES.map((s) => {
+    let mini = '';
+    for (let z = 0; z < 21; z++) {
+      const col = z % 7;
+      mini += `<span class="mini-cell" style="border-color:${s.line}"><span style="color:${col === 0 ? s.sun : col === 6 ? s.sat : s.ink}">${z + 3}</span><i style="background:${z % 3 === 0 ? th.c[z % 8][2] : th.c[z % 8][1]}"></i><i style="background:${z % 2 === 0 ? th.c[(z + 3) % 8][1] : 'transparent'}"></i></span>`;
+    }
+    const on = p.styleId === s.id;
+    return `<button class="pick-card${on ? ' on' : ''}" data-act="pick-style" data-id="${s.id}" aria-pressed="${on}">
+      <span class="style-preview st-${s.id}" style="color:${s.ink}">
+        <span class="sp-title">May <span>GOAL : 중간고사</span></span>
+        <span class="mini-cal" style="border:${s.outer};border-radius:${s.radius}px;background:${s.cellBg}">${mini}</span>
+      </span>
+      <span class="pick-name">${esc(s.name)} <small>${esc(s.desc)}</small>${pickMark(on, settings().styleId === s.id)}</span>
+    </button>`;
+  }).join('') + '</div>';
+}
+
+function colorBody() {
+  const p = pendingOf();
+  return THEME_GROUPS.map((g) => `<h3 class="pick-group">${esc(g.name)} <small>${esc(g.desc)}</small></h3><div class="pick-grid cols-4">` + THEMES.filter((t) => t.group === g.id).map((t) => {
+    const on = p.themeId === t.id;
+    const sw = t.c.map((c) => `<span class="swatch-pair" title="${esc(c[0])}"><i style="background:${c[1]}"></i><i style="background:${c[2]}"></i></span>`).join('');
+    return `<button class="pick-card${on ? ' on' : ''}" data-act="pick-theme" data-id="${t.id}" aria-pressed="${on}">
+      <span class="pick-name">${esc(t.name)} <small>${esc(t.desc)}</small>${pickMark(on, settings().themeId === t.id)}</span>
+      <span class="swatch-row">${sw}</span>
+    </button>`;
+  }).join('') + '</div>').join('');
+}
+
+function fontBody() {
+  const p = pendingOf();
+  const th = THEMES.find((t) => t.id === p.themeId) || curTheme();
+  return '<div class="pick-grid cols-2">' + FONTS.map((f) => {
+    const on = p.fontId === f.id;
+    const k = f.scale;
+    return `<button class="pick-card font-card${on ? ' on' : ''}" data-act="pick-font" data-id="${f.id}" aria-pressed="${on}" style="font-family:${f.family}">
+      <span class="pick-name" style="font-size:${Math.round(20 * k)}px">${esc(f.name)} <small style="font-size:${Math.round(12 * k)}px">${esc(f.desc)}</small>${pickMark(on, settings().fontId === f.id)}</span>
+      <span style="font-size:${Math.round(22 * k)}px">May · GOAL : 1학기 중간고사 대비</span>
+      <span class="row-wrap">
+        <span style="font-size:${Math.round(16 * k)}px;font-weight:700">D-12</span>
+        <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${th.c[0][1]};color:${inkOn(th.c[0][1])}"><b>쎈</b> 06단원</span>
+        <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${th.c[1][2]};color:${inkOn(th.c[1][2])}"><b>RPM</b> p.109~119</span>
+        <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${th.c[2][1]};color:${inkOn(th.c[2][1])}"><b>모의고사</b> 38~40번</span>
+      </span>
+    </button>`;
+  }).join('') + '</div>';
+}
+
+function displayBody() {
+  const p = pendingOf();
+  const night = p.styleId === 'night';
+  const sw = (act, on, title, desc) => `<button class="switch-row" data-act="${act}" role="switch" aria-checked="${on}">
+      <span class="switch-text"><span>${title}</span><span class="hint small">${desc}</span></span>
+      <span class="switch${on ? ' on' : ''}" aria-hidden="true"><i></i></span>
+    </button>`;
+  return `<div class="switch-list">
+    ${sw('toggle-goal', p.showGoal, 'GOAL (이번 달 목표) 표시', '끄면 캘린더 위의 GOAL 칸과 인쇄용 A4에서 목표가 숨겨져요. 적어 둔 목표는 지워지지 않아요.')}
+    ${sw('toggle-night', night, '나이트모드', '밤 공부용 어두운 화면 · 팝업까지 어두워져요. 끄면 원래 쓰던 캘린더 스타일로 돌아가요.')}
   </div>`;
+}
+
+function exportBody() {
+  const { year: y, month: m } = S.ui;
+  const ex = S.ui.export || {};
+  const preview = ex.url
+    ? `<img class="export-img" src="${ex.url}" alt="${y}년 ${m}월 A4 미리보기">`
+    : `<div class="notice export-wait">${ex.error ? esc(ex.error) : 'A4 이미지를 만드는 중…'}</div>`;
+  return `${preview}
+    <p class="hint small" style="margin:0">${y}년 ${m}월을 A4 가로 한 장으로 만들어요. 칸에 다 안 들어가는 할 일은 "+N개 더"로 표시돼요.${isNight() ? ' 나이트모드는 잉크 절약을 위해 흰 배경으로 저장돼요.' : ''}</p>`;
 }
 
 function viewAccountModal() {
@@ -917,9 +968,22 @@ function openModal(name, extra) {
   if (first) first.focus();
 }
 
+function openSettings(tab, opts) {
+  const o = opts || {};
+  if (!o.keepPending) S.ui.pending = null;
+  const extra = { setTab: tab };
+  if ('returnToTodo' in o) extra.returnToTodo = o.returnToTodo;
+  if (o.catSubject) extra.catSubject = o.catSubject;
+  if (tab === 'category' && !S.ui.catSubject && !o.catSubject) extra.catSubject = S.data.subjects[0] ? S.data.subjects[0].id : null;
+  if (tab === 'export') extra.export = {};
+  openModal('settings', extra);
+  if (tab === 'export') setTimeout(makeExportImage, 30);
+}
+
 function closeModal() {
   if (S.ui.export && S.ui.export.url) URL.revokeObjectURL(S.ui.export.url);
   S.ui.export = null;
+  S.ui.pending = null;
   S.ui.modal = null;
   S.ui.draft = null;
   render();
@@ -1043,10 +1107,23 @@ const actions = {
     S.ui.draft = null;
     commit();
   },
-  'open-category': () => openModal('category', { returnToTodo: false, catSubject: S.ui.catSubject || (S.data.subjects[0] && S.data.subjects[0].id) || null }),
-  'open-category-from-todo': () => openModal('category', { returnToTodo: true, catSubject: S.ui.draft.subjectId }),
-  'close-category': () => {
-    if (S.ui.returnToTodo && S.ui.draft) { S.ui.modal = 'todo'; S.ui.returnToTodo = false; render(); } else closeModal();
+  'open-settings': (el) => openSettings((el && el.dataset.tab) || S.ui.setTab || 'exam'),
+  'set-tab': (el) => openSettings(el.dataset.tab, { keepPending: true }),
+  'open-category-from-todo': () => openSettings('category', { returnToTodo: true, catSubject: S.ui.draft.subjectId }),
+  'apply-settings': () => {
+    const p = S.ui.pending;
+    if (!p) return;
+    const st = settings();
+    st.styleId = p.styleId;
+    if (p.styleId !== 'night') st.prevStyle = p.styleId;
+    else if (p.prevStyle && p.prevStyle !== 'night') st.prevStyle = p.prevStyle;
+    st.themeId = p.themeId;
+    st.fontId = p.fontId;
+    st.showGoal = p.showGoal;
+    applyTheme();
+    S.ui.pending = null;
+    S.ui.modal = null;
+    commit();
   },
   'cat-select': (el) => { S.ui.catSubject = el.dataset.id; render(); },
   'add-subject': () => {
@@ -1114,25 +1191,31 @@ const actions = {
     if (S.ui.draft && S.ui.draft.bookId === b.id) S.ui.draft.bookId = null;
     commit();
   },
-  'open-theme': (el) => openModal('theme', { themeTab: el.dataset.tab || 'style' }),
-  tab: (el) => { S.ui.themeTab = el.dataset.tab; render(); },
   'pick-style': (el) => {
-    settings().styleId = el.dataset.id;
-    if (el.dataset.id !== 'night') settings().prevStyle = el.dataset.id;
-    applyTheme();
-    commit();
+    const p = pendingOf();
+    if (el.dataset.id !== 'night') p.prevStyle = el.dataset.id;
+    p.styleId = el.dataset.id;
+    render();
   },
-  'pick-theme': (el) => { settings().themeId = el.dataset.id; applyTheme(); commit(); },
-  'pick-font': (el) => { settings().fontId = el.dataset.id; applyTheme(); commit(); },
+  'pick-theme': (el) => { pendingOf().themeId = el.dataset.id; render(); },
+  'pick-font': (el) => { pendingOf().fontId = el.dataset.id; render(); },
+  'toggle-goal': () => { const p = pendingOf(); p.showGoal = !p.showGoal; render(); },
   'toggle-night': () => {
-    const st = settings();
-    if (st.styleId === 'night') st.styleId = st.prevStyle && st.prevStyle !== 'night' ? st.prevStyle : 'grid';
-    else { st.prevStyle = st.styleId; st.styleId = 'night'; }
-    applyTheme();
-    if (S.phase === 'app') commit();
-    else { saveLocal('last', S.data); render(); }
+    if (S.phase !== 'app') {
+      // 로그인 화면의 나이트모드 버튼: 바로 적용
+      const st = settings();
+      if (st.styleId === 'night') st.styleId = st.prevStyle && st.prevStyle !== 'night' ? st.prevStyle : 'grid';
+      else { st.prevStyle = st.styleId; st.styleId = 'night'; }
+      applyTheme();
+      saveLocal('last', S.data);
+      render();
+      return;
+    }
+    const p = pendingOf();
+    if (p.styleId === 'night') p.styleId = p.prevStyle && p.prevStyle !== 'night' ? p.prevStyle : 'grid';
+    else { p.prevStyle = p.styleId; p.styleId = 'night'; }
+    render();
   },
-  'open-exam': () => openModal('exam'),
   'add-exam': () => {
     const name = document.getElementById('exam-name');
     const date = document.getElementById('exam-date');
@@ -1148,10 +1231,6 @@ const actions = {
     commit();
   },
   'open-account': () => openModal('account'),
-  'open-export': () => {
-    openModal('export', { export: {} });
-    setTimeout(makeExportImage, 30);
-  },
   'export-print': () => window.print(),
   'export-save': async () => {
     const ex = S.ui.export;
@@ -1184,8 +1263,14 @@ const actions = {
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
   },
   'close-modal': () => {
-    if (S.ui.modal === 'category') actions['close-category']();
-    else closeModal();
+    if (S.ui.modal === 'settings' && S.ui.returnToTodo && S.ui.draft) {
+      S.ui.modal = 'todo';
+      S.ui.returnToTodo = false;
+      S.ui.pending = null;
+      render();
+      return;
+    }
+    closeModal();
   },
   overlay: (el, e) => { if (e.target === el) actions['close-modal'](); },
 };

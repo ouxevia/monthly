@@ -410,3 +410,41 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 @keyframes slide-prev { from { transform: translateX(-40px); opacity: 0.3; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .cal.slide-next, .cal.slide-prev { animation: none; } }
 @media (max-width: 900px) { .top-actions { align-self: flex-start; } }
+
+/* ---------- 월 이름 · 환경설정 ---------- */
+.month-title { margin: 0; font-size: calc(44px * var(--k)); font-weight: 400; line-height: 1; letter-spacing: 1px; min-width: 150px; }
+.ps-month { font-size: calc(30px * var(--k)); line-height: 1; flex: none; min-width: 120px; }
+
+.settings-modal { height: min(860px, calc(100vh - 48px)); }
+.set-layout { display: flex; gap: 20px; min-height: 0; flex: 1; }
+.set-nav { display: flex; flex-direction: column; gap: 4px; width: 190px; flex: none; overflow-y: auto; }
+.set-tab {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 10px;
+  border: 0; background: transparent; color: var(--card-ink); font-size: calc(15px * var(--k)); text-align: left;
+}
+.set-tab:hover { background: var(--soft); }
+.set-tab.on { background: var(--soft); font-weight: 700; }
+.set-tab svg { flex: none; color: var(--label); }
+.set-body { flex: 1; min-width: 0; }
+.settings-modal .modal-foot { align-items: center; }
+.settings-modal .modal-foot .hint { margin-right: auto; }
+.pick-name em.em-new { color: var(--sat); }
+.pick-name em.em-old { color: var(--hint); }
+
+.switch-list { display: flex; flex-direction: column; gap: 10px; }
+.switch-row {
+  display: flex; align-items: center; gap: 16px; width: 100%; text-align: left;
+  border: 1px solid var(--mline); border-radius: 14px; padding: 14px 16px; background: var(--card); color: var(--card-ink);
+}
+.switch-text { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; font-size: calc(15px * var(--k)); }
+.switch { width: 48px; height: 28px; border-radius: 14px; background: var(--btn-line); position: relative; flex: none; transition: background 0.15s; }
+.switch i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: left 0.15s; }
+.switch.on { background: #3FA46A; }
+.switch.on i { left: 23px; }
+
+@media (max-width: 900px) {
+  .set-layout { flex-direction: column; }
+  .set-nav { flex-direction: row; flex-wrap: wrap; width: auto; }
+  .set-tab { min-height: 38px; padding: 0 10px; font-size: calc(13px * var(--k)); }
+  .settings-modal { height: calc(100vh - 32px); }
+}
