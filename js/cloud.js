@@ -1,4 +1,4 @@
-// Supabase 이메일 로그인 + 동기화
+// Supabase 이메일 · 비밀번호 로그인 + 동기화
 //
 // planners 테이블에 사용자마다 한 줄(doc jsonb)로 플래너를 저장합니다. (형식은 store.js의 toRemote 참고)
 // 저장할 때는 바뀐 칸만 apply_planner_ops 함수로 보내서, 두 기기가 서로 다른 항목을 고쳐도 합쳐집니다.
@@ -7,7 +7,7 @@
 
 const SDK = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 
-export async function initCloud(config, { onUser, onRemote, onError }) {
+export async function initCloud(config, { onUser, onRemote, onError, onRecovery }) {
   const { createClient } = await import(SDK);
   const sb = createClient(config.url, config.anonKey, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' },
@@ -37,7 +37,9 @@ export async function initCloud(config, { onUser, onRemote, onError }) {
     fetchDoc();
   }
 
-  sb.auth.onAuthStateChange((_event, session) => {
+  sb.auth.onAuthStateChange((event, session) => {
+    // 비밀번호 재설정 메일의 링크로 들어온 경우: 새 비밀번호 입력받기
+    if (event === 'PASSWORD_RECOVERY' && onRecovery) setTimeout(onRecovery, 0);
     // 콜백 안에서 바로 다른 Supabase 호출을 하면 멈출 수 있어서 한 박자 뒤에 처리
     setTimeout(() => setUser(session ? session.user : null), 0);
   });
@@ -54,14 +56,22 @@ export async function initCloud(config, { onUser, onRemote, onError }) {
   }
 
   return {
-    // 로그인 링크(와 6자리 코드)를 이메일로 보내기
-    async sendLoginEmail(email) {
-      const redirect = location.origin + location.pathname;
-      const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirect, shouldCreateUser: true } });
+    async signIn(email, password) {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw error;
     },
-    async verifyCode(email, token) {
-      const { error } = await sb.auth.verifyOtp({ email, token, type: 'email' });
+    // 가입: 이메일 확인이 꺼져 있으면 바로 로그인되고 true, 확인 메일이 필요하면 false
+    async signUp(email, password) {
+      const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } });
+      if (error) throw error;
+      return Boolean(data && data.session);
+    },
+    async sendPasswordReset(email) {
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+      if (error) throw error;
+    },
+    async updatePassword(password) {
+      const { error } = await sb.auth.updateUser({ password });
       if (error) throw error;
     },
     async signOut() {

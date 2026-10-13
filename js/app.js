@@ -15,7 +15,7 @@ const S = {
   sync: 'local', // local | syncing | synced | error
   lastSync: 0,
   loginError: '',
-  login: { email: '', sent: false, busy: false },
+  login: { mode: 'login', email: '', busy: false, info: '' },
   deviceRegistered: false,
   base: null, // 서버에 마지막으로 반영된 상태 (toRemote 형식)
   creating: false,
@@ -196,7 +196,7 @@ async function boot() {
   render();
   try {
     const { initCloud } = await import('./cloud.js');
-    S.cloud = await initCloud(supabaseConfig, { onUser, onRemote, onError: onCloudError });
+    S.cloud = await initCloud(supabaseConfig, { onUser, onRemote, onError: onCloudError, onRecovery });
   } catch (err) {
     console.error('[supabase]', err);
     S.loginError = '동기화 서버(Supabase)에 연결하지 못했어요. 설정값과 인터넷 연결을 확인하세요.';
@@ -337,26 +337,28 @@ function viewLogin() {
     body = `<p class="hint center">아직 동기화 서버(Supabase) 설정 전이에요.<br>지금은 이 기기에만 저장하는 모드로 시작할 수 있어요.</p>
        <button class="btn btn-lg btn-primary" data-act="start-local">이 기기에서 시작하기</button>
        <p class="hint small center">로그인 · 동기화 설정 방법은 README의 "Supabase 설정"을 참고하세요.</p>`;
-  } else if (!L.sent) {
-    body = `<p class="hint center">이메일로 로그인 링크를 보내 드려요.<br>비밀번호 없이, 모든 기기에서 같은 플래너가 열려요.</p>
+  } else {
+    const signup = L.mode === 'signup';
+    body = `<div class="tabs login-tabs" role="tablist">
+         <button class="tab${signup ? '' : ' on'}" role="tab" aria-selected="${!signup}" data-act="login-mode" data-mode="login">로그인</button>
+         <button class="tab${signup ? ' on' : ''}" role="tab" aria-selected="${signup}" data-act="login-mode" data-mode="signup">회원가입</button>
+       </div>
        <div class="field-group">
          <label class="field-label" for="login-email">이메일</label>
-         <input id="login-email" class="field" type="email" inputmode="email" autocomplete="email" placeholder="name@email.com" value="${esc(L.email)}" data-enter="login">
+         <input id="login-email" class="field" type="email" inputmode="email" autocomplete="email" placeholder="name@email.com" value="${esc(L.email)}">
        </div>
-       <button class="btn btn-lg btn-primary" data-act="login"${L.busy ? ' disabled' : ''}>${L.busy ? '보내는 중…' : '로그인 메일 받기'}</button>
-       <p class="hint small center">처음이면 자동으로 가입돼요</p>`;
-  } else {
-    body = `<p class="hint center"><b>${esc(L.email)}</b>로 메일을 보냈어요.<br>메일 속 <b>로그인 링크를 이 기기에서</b> 누르거나,<br>메일에 6자리 코드가 있으면 아래에 입력하세요.</p>
        <div class="field-group">
-         <label class="field-label" for="login-code">6자리 코드</label>
-         <input id="login-code" class="field" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456" data-enter="verify-code">
+         <label class="field-label" for="login-pw">비밀번호${signup ? ' (6자 이상)' : ''}</label>
+         <input id="login-pw" class="field" type="password" autocomplete="${signup ? 'new-password' : 'current-password'}" placeholder="비밀번호" data-enter="${signup ? 'signup' : 'login'}">
        </div>
-       <button class="btn btn-lg btn-primary" data-act="verify-code"${L.busy ? ' disabled' : ''}>${L.busy ? '확인 중…' : '코드로 로그인'}</button>
-       <div class="row-wrap" style="justify-content:center">
-         <button class="link-btn" data-act="login-reset">다른 이메일로</button>
-         <button class="link-btn" data-act="login">메일 다시 보내기</button>
-       </div>
-       <p class="hint small center">메일이 안 보이면 스팸함도 확인해 주세요.</p>`;
+       ${signup ? `<div class="field-group">
+         <label class="field-label" for="login-pw2">비밀번호 확인</label>
+         <input id="login-pw2" class="field" type="password" autocomplete="new-password" placeholder="한 번 더 입력" data-enter="signup">
+       </div>` : ''}
+       <button class="btn btn-lg btn-primary" data-act="${signup ? 'signup' : 'login'}"${L.busy ? ' disabled' : ''}>${L.busy ? '잠시만요…' : signup ? '가입하고 시작하기' : '로그인'}</button>
+       ${L.info ? `<p class="hint small center">${esc(L.info)}</p>` : ''}
+       ${signup ? '<p class="hint small center">폰 · 패드 · 노트북에서 같은 이메일과 비밀번호로 로그인하면 플래너가 동기화돼요.</p>'
+         : '<button class="link-btn" data-act="forgot-pw" style="align-self:center">비밀번호를 잊었어요</button>'}`;
   }
   return `<main class="login">
     <section class="login-intro">
@@ -762,48 +764,34 @@ function closeModal() {
 
 const actions = {
   login: async () => {
-    const input = document.getElementById('login-email');
-    if (input) S.login.email = input.value.trim();
-    const email = S.login.email;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      S.loginError = '이메일 주소를 확인해 주세요.';
-      render();
-      return;
-    }
-    if (!S.cloud) { S.loginError = '서버에 연결하는 중이에요. 잠시 후 다시 눌러 주세요.'; render(); return; }
-    S.loginError = '';
-    S.login.busy = true;
-    render();
-    try {
-      await S.cloud.sendLoginEmail(email);
-      S.login.sent = true;
-    } catch (err) {
-      console.error(err);
-      S.loginError = /rate|seconds/i.test(err.message || '')
-        ? '메일을 너무 자주 보냈어요. 1분쯤 뒤에 다시 시도해 주세요.'
-        : '메일을 보내지 못했어요. (' + (err.message || err) + ')';
-    }
-    S.login.busy = false;
-    render();
+    const f = readLoginForm();
+    if (!f) return;
+    await loginTask(async () => { await S.cloud.signIn(f.email, f.pw); }, (err) =>
+      /invalid login|credentials/i.test(err.message || '') ? '이메일 또는 비밀번호가 맞지 않아요.'
+        : /not confirmed/i.test(err.message || '') ? '가입 확인 메일의 링크를 먼저 눌러 주세요. (스팸함도 확인)'
+          : '로그인하지 못했어요. (' + (err.message || err) + ')');
   },
-  'verify-code': async () => {
-    const input = document.getElementById('login-code');
-    const code = input ? input.value.replace(/\s/g, '') : '';
-    if (!code) { if (input) input.focus(); return; }
-    S.loginError = '';
-    S.login.busy = true;
-    render();
-    try {
-      await S.cloud.verifyCode(S.login.email, code);
-      S.login = { email: S.login.email, sent: false, busy: false };
-    } catch (err) {
-      console.error(err);
-      S.loginError = '코드가 맞지 않거나 시간이 지났어요. 메일을 다시 받아 주세요.';
-      S.login.busy = false;
-      render();
-    }
+  signup: async () => {
+    const f = readLoginForm();
+    if (!f) return;
+    const pw2 = document.getElementById('login-pw2');
+    if (f.pw.length < 6) { S.loginError = '비밀번호는 6자 이상으로 해 주세요.'; render(); return; }
+    if (pw2 && pw2.value !== f.pw) { S.loginError = '비밀번호 확인이 달라요.'; render(); return; }
+    await loginTask(async () => {
+      const loggedIn = await S.cloud.signUp(f.email, f.pw);
+      if (!loggedIn) S.login = { mode: 'login', email: f.email, busy: false, info: '가입 확인 메일을 보냈어요. 메일의 링크를 누른 뒤 여기서 로그인하세요.' };
+    }, (err) => /already/i.test(err.message || '') ? '이미 가입된 이메일이에요. 로그인 탭에서 로그인하세요.'
+      : '가입하지 못했어요. (' + (err.message || err) + ')');
   },
-  'login-reset': () => { S.login = { email: S.login.email, sent: false, busy: false }; S.loginError = ''; render(); },
+  'login-mode': (el) => { S.login = { mode: el.dataset.mode, email: currentEmail(), busy: false, info: '' }; S.loginError = ''; render(); },
+  'forgot-pw': async () => {
+    const email = currentEmail();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { S.loginError = '위에 이메일을 먼저 입력해 주세요.'; render(); return; }
+    await loginTask(async () => {
+      await S.cloud.sendPasswordReset(email);
+      S.login.info = '비밀번호 재설정 메일을 보냈어요. 메일의 링크를 이 기기에서 눌러 주세요.';
+    }, (err) => '메일을 보내지 못했어요. (' + (err.message || err) + ')');
+  },
   'start-local': () => {
     try { localStorage.setItem(LOCAL_STARTED_KEY, '1'); } catch (e) { /* 무시 */ }
     S.phase = 'app';
@@ -984,6 +972,50 @@ const actions = {
   },
   overlay: (el, e) => { if (e.target === el) actions['close-modal'](); },
 };
+
+function currentEmail() {
+  const el = document.getElementById('login-email');
+  return (el ? el.value : S.login.email).trim();
+}
+
+function readLoginForm() {
+  const email = currentEmail();
+  const pwEl = document.getElementById('login-pw');
+  const pw = pwEl ? pwEl.value : '';
+  S.login.email = email;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { S.loginError = '이메일 주소를 확인해 주세요.'; render(); return null; }
+  if (!pw) { S.loginError = '비밀번호를 입력해 주세요.'; render(); return null; }
+  if (!S.cloud) { S.loginError = '서버에 연결하는 중이에요. 잠시 후 다시 눌러 주세요.'; render(); return null; }
+  return { email, pw };
+}
+
+async function loginTask(fn, message) {
+  S.loginError = '';
+  S.login.info = '';
+  S.login.busy = true;
+  render();
+  try {
+    await fn();
+  } catch (err) {
+    console.error(err);
+    S.loginError = message(err);
+  }
+  S.login.busy = false;
+  if (S.phase === 'login') render();
+}
+
+// 비밀번호 재설정 메일 링크로 들어왔을 때
+async function onRecovery() {
+  const pw = prompt('새 비밀번호를 입력하세요 (6자 이상)');
+  if (!pw) return;
+  if (pw.length < 6) { alert('비밀번호는 6자 이상이어야 해요. 재설정 메일을 다시 받아 주세요.'); return; }
+  try {
+    await S.cloud.updatePassword(pw);
+    alert('비밀번호를 바꿨어요.');
+  } catch (err) {
+    alert('비밀번호를 바꾸지 못했어요: ' + (err.message || err));
+  }
+}
 
 async function importBackup(file) {
   try {

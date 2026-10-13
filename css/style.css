@@ -342,3 +342,5 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
   .title-row { gap: 12px; }
   .month-btn { width: 34px; height: 34px; }
 }
+.login-tabs { width: 100%; }
+.login-tabs .tab { flex: 1; }
