@@ -1,21 +1,92 @@
 // 테마 · 스타일 · 글씨체 · 공휴일 데이터
 
-// 과목 색상 테마: 각 색은 [이름, 미완료(연함), 완료(짙음)]
-export const THEMES = [
-  { id: 'spring', name: '봄', desc: '벚꽃 · 새싹 · 개나리', c: [['벚꽃', '#F6CBD5', '#C9566F'], ['새싹', '#D5E8B5', '#5F8A2E'], ['개나리', '#F7E3A1', '#A8820F'], ['하늘', '#C8E1F4', '#3F7FB5'], ['라일락', '#DDD0EE', '#7E5BB0'], ['살구', '#F9D4BE', '#C0602F'], ['민트', '#C6EBDD', '#2B8565'], ['진달래', '#F1C4E4', '#A8418A']] },
-  { id: 'summer', name: '여름', desc: '바다 · 수박 · 라임', c: [['바다', '#BFE3F2', '#1E7FAF'], ['수박', '#F8C6C6', '#C93A44'], ['라임', '#DDF0B0', '#5E8A12'], ['레몬', '#FBEEA6', '#A88600'], ['코랄', '#FDD2C0', '#D2532E'], ['청록', '#B8E8E2', '#14806F'], ['수국', '#D3D6F5', '#4E57B8'], ['망고', '#FCDDA8', '#C4731F']] },
-  { id: 'autumn', name: '가을', desc: '단풍 · 은행 · 도토리', c: [['단풍', '#F4C7B5', '#B4472A'], ['은행', '#F6E2A4', '#A47C10'], ['도토리', '#E2D0BC', '#7D5A3A'], ['올리브', '#DCDDB8', '#6B6E2E'], ['와인', '#E8C3CA', '#7E2639'], ['호박', '#F8D3AE', '#C0601C'], ['갈대', '#E9DFC6', '#85703F'], ['가을하늘', '#C9D8E6', '#456A8C']] },
-  { id: 'winter', name: '겨울', desc: '눈꽃 · 소나무 · 홀리', c: [['눈꽃', '#D3E3F1', '#3D6E9E'], ['소나무', '#C9DDD3', '#2F6B50'], ['홀리', '#EFC5C8', '#A3313B'], ['실버', '#DDE1E6', '#5E6A78'], ['오로라', '#CDEBE8', '#20786F'], ['겨울밤', '#DAD3EA', '#5E4A92'], ['촛불', '#F3E3B8', '#96761A'], ['네이비', '#C9CFE3', '#28356B']] },
-  { id: 'mocha', name: '모카', desc: '모카 · 카라멜 · 말차', c: [['모카', '#E3CFC0', '#7B4E36'], ['크림', '#F2E6CC', '#977839'], ['카라멜', '#F0D2AE', '#A8642A'], ['말차', '#D6DFC0', '#5E7340'], ['로즈', '#EBCFCF', '#9A4D55'], ['차콜', '#D8D4D0', '#4A4440'], ['블루베리', '#D2D4E6', '#4C5280'], ['시나몬', '#EDC9B6', '#A04E30']] },
-  { id: 'sunset', name: '석양', desc: '노을 · 핑크 · 보랏빛', c: [['노을', '#FBD3B5', '#CC5A24'], ['핑크', '#F8C9D4', '#C0405F'], ['보랏빛', '#DDCDEB', '#7447A3'], ['금빛', '#F7E2A6', '#A88010'], ['붉은해', '#F3C1BC', '#B8322C'], ['피치', '#FCDCCB', '#B9653A'], ['남보라', '#CFD0EA', '#3E4590'], ['자홍', '#EDC4E2', '#9A2F7E']] },
-  { id: 'matcha', name: '말차딸기', desc: '말차 · 딸기 · 우유', c: [['딸기', '#F4C7D0', '#B85468'], ['말차', '#D7DAB3', '#4A6644'], ['우유', '#EDE4D3', '#8C7A5B'], ['체리', '#F2B9BF', '#A3263A'], ['쑥', '#CFDCC0', '#5E7A4A'], ['팥', '#E3C9C9', '#7A3E45'], ['호지차', '#E6D2BC', '#8A5A34'], ['바닐라', '#F5E9C2', '#9A7D22']] },
-  { id: 'cherry', name: '체리라떼', desc: '체리 · 라떼 · 시나몬', c: [['체리', '#F0C2C2', '#9E2A33'], ['라떼', '#EAD9C6', '#87564B'], ['에스프레소', '#D9CBC4', '#4A2C24'], ['로즈', '#EDC9C3', '#A6584A'], ['시럽', '#F2D7B8', '#A0602A'], ['베리', '#E5C6D6', '#7E3560'], ['시나몬', '#E6CFC0', '#8C5A3C'], ['피스타치오', '#D9E2C4', '#66784A']] },
-  { id: 'midnight', name: '미드나잇', desc: '밤하늘 · 달빛 · 별보라', c: [['밤하늘', '#CBD3E6', '#2E3E6E'], ['달빛', '#EDE7CF', '#85723A'], ['별보라', '#D8D0EC', '#5A4596'], ['새벽', '#C7E0E2', '#2B6F78'], ['은하', '#E2CFE6', '#7D3F86'], ['구름', '#D7DCE3', '#4E5A6B'], ['오로라', '#CFE8D6', '#2F7A4E'], ['샛별', '#F2D4C4', '#A04E32']] },
-  { id: 'deepsea', name: '딥씨', desc: '심해 · 산호 · 아쿠아', c: [['심해', '#C6D2E2', '#1F3A5F'], ['산호', '#F7CFC4', '#B9503A'], ['해초', '#C9E2D4', '#2E6E52'], ['아쿠아', '#BFE7EE', '#147184'], ['진주', '#E9E3DA', '#7A6A55'], ['해파리', '#E1D1EE', '#6E4A9E'], ['모래', '#F1E3C1', '#94752A'], ['등대', '#F1C8C8', '#A4343C']] },
-  { id: 'lavender', name: '라벤더필드', desc: '라벤더 · 연두 · 플럼', c: [['라벤더', '#DDD3F0', '#6A4FA8'], ['연두', '#DCEBC0', '#5A8429'], ['라일락', '#F0D0E3', '#A04680'], ['하늘', '#CFE0F3', '#3F6FA8'], ['레몬', '#F5EBB5', '#97800F'], ['세이지', '#D3DED1', '#506C55'], ['플럼', '#E2CBD9', '#6E2F57'], ['복숭아', '#F8D8C8', '#B85A33']] },
-  { id: 'vintage', name: '빈티지노트', desc: '올리브 · 머스타드 · 버건디', c: [['올리브', '#DEDDB9', '#646A2C'], ['머스타드', '#F2DFA6', '#977312'], ['버건디', '#E7C4C6', '#7A2632'], ['틸', '#C7DEDA', '#2E6B66'], ['테라코타', '#EFCDBA', '#A2502C'], ['잉크', '#CBD2E2', '#2E3D66'], ['세피아', '#E5D6C3', '#6E5233'], ['로즈우드', '#E9CBD0', '#8E4655']] },
-  { id: 'bluehour', name: '블루아워', desc: '코발트 · 피치 · 스카이', c: [['코발트', '#CBD9F0', '#2A4F9A'], ['피치', '#FAD7C4', '#BC5C33'], ['스카이', '#CFE7F5', '#246F9A'], ['라일락', '#DED5F0', '#5F4AA0'], ['앰버', '#F7E1A8', '#977010'], ['민트', '#CDEBDF', '#2C7D5E'], ['로즈', '#F3CCD6', '#B04462'], ['스틸', '#D5DCE4', '#475769']] },
+// 과목 색상 테마
+// 테마마다 기준색 8개(과목 순서대로 배정)만 정하고, 미완료(연함) · 완료(짙음) 한 쌍은 자동으로 만듭니다.
+//  - 밝은 기준색: 미완료 = 기준색, 완료 = 같은 색 계열에서 더 짙게
+//  - 어두운 기준색: 미완료 = 같은 색 계열에서 밝게, 완료 = 기준색
+// 결과 형식은 c: [[이름, 미완료색, 완료색], ...]
+
+const RAINBOW = ['빨강', '주황', '노랑', '초록', '파랑', '남색', '보라', '분홍'];
+
+const THEME_SOURCES = [
+  // 빨주노초파남보 + 분홍: 같은 무지개를 톤만 다르게
+  { id: 'rb-pastel', group: 'rainbow', name: '파스텔', desc: '부드러운 파스텔 무지개', base: ['#F5A9A9', '#F9C99B', '#F7E08E', '#BCE2A8', '#A9D3F0', '#AEB9EC', '#CDB6EC', '#F5B9D6'] },
+  { id: 'rb-vivid', group: 'rainbow', name: '원색', desc: '쨍한 원색 무지개', base: ['#E8443A', '#F28C28', '#F5C518', '#3DAA4E', '#1E90E0', '#3949AB', '#8E44AD', '#EC4F98'] },
+  { id: 'rb-vintage', group: 'rainbow', name: '빈티지', desc: '바랜 종이 느낌 무지개', base: ['#B5534A', '#C97B45', '#D2A63E', '#7F9455', '#4F8A9C', '#4A5D86', '#7A5C88', '#C07F8E'] },
+  { id: 'rb-muted', group: 'rainbow', name: '톤다운', desc: '차분하게 가라앉은 무지개', base: ['#C98A86', '#D3A27F', '#D6C184', '#9AAE8A', '#88A8B8', '#8790B4', '#A592B2', '#D0A0B2'] },
+  { id: 'rb-water', group: 'rainbow', name: '수채화', desc: '맑게 번진 물감 무지개', base: ['#EE7A74', '#F4AA64', '#F3D46E', '#8FCF86', '#6DBCE0', '#768FD2', '#A886CF', '#F095BD'] },
+  { id: 'rb-jewel', group: 'rainbow', name: '주얼톤', desc: '보석처럼 깊은 무지개', base: ['#A51E36', '#C55A1E', '#C99A1E', '#2E7D4F', '#1F639E', '#2E3584', '#5E2E85', '#A6336E'] },
+
+  // 여러 색이 섞인 조합
+  { id: 'mx-blush', group: 'mix', name: '블러시 가든', desc: '블러시 · 로즈우드 · 세이지', names: ['블러시', '로즈우드', '세이지', '미스티 스카이', '미드나잇', '바닐라', '더스티 로즈', '모스'], base: ['#F7C8D3', '#B46A72', '#A8B58A', '#A8B7C6', '#2D3A47', '#F3E3C3', '#D9A5A0', '#6E7F5A'] },
+  { id: 'mx-butter', group: 'mix', name: '버터 & 버건디', desc: '버터밀크 · 파스텔 블루 · 버건디', names: ['버터밀크', '파스텔 블루', '올드 버건디', '세이지', '블러시', '카라멜', '네이비', '라벤더'], base: ['#FFF1B5', '#C1DBE8', '#6B2E33', '#A8B58A', '#EDBFC0', '#C08552', '#3A4A6B', '#C3B5D9'] },
+  { id: 'mx-paris', group: 'mix', name: '파리 2026', desc: '오렌지 · 쿨 블루 · 카시스', names: ['오렌지 토파즈', '쿨 블루', '베르 소주', '카시스', '라임', '머스타드', '테라코타', '라일락'], base: ['#F47C3C', '#BFD8F5', '#AEB8A0', '#5A2C45', '#DCE85A', '#D9A93B', '#C2603F', '#B9A6D3'] },
+  { id: 'mx-retro', group: 'mix', name: '레트로 팝', desc: '라벤더 · 라임에이드 · 토마토', names: ['오텀 라벤더', '라임에이드', '토마토 잼', '퓨어 선', '모네 연못', '버블검', '스카이', '틸'], base: ['#D1CAEA', '#D6D35F', '#C45F3F', '#F4D242', '#898E46', '#F29CC3', '#80B0E8', '#008471'] },
+  { id: 'mx-baby', group: 'mix', name: '베이비 팝', desc: '라벤더 · 피치 · 풀장', names: ['베이비 라벤더', '블루 스카이', '수선화', '나이트', '피치', '양귀비', '푸크시아', '풀장'], base: ['#DBC0E8', '#A3C1E2', '#F7E289', '#252D45', '#FBB28B', '#F76F54', '#EA5E8B', '#47B5A8'] },
+  { id: 'mx-spring', group: 'mix', name: '봄 정원', desc: '새잎 · 골드 · 핑크', names: ['라일락 그레이', '새잎', '굿 서프', '골드 벨벳', '핑크', '파피', '버터 옐로', '완두꽃'], base: ['#D3C2CD', '#849E15', '#92A2A8', '#B28622', '#F3B3BD', '#D8560E', '#F4DA7A', '#5B6FB8'] },
+  { id: 'mx-pantone', group: 'mix', name: '클래식', desc: '옐로 · 레드 · 세룰리안 · 브라운', names: ['트랜스패런트 옐로', '셉터 레드', '세룰리안', '포팅 소일', '샴브레이', '에스프레소', '글레이셔', '세이지'], base: ['#F5EFC6', '#8C1D24', '#A5BCDE', '#7A5446', '#79A3C3', '#3A2119', '#D2E2EC', '#9EA98A'] },
 ];
+
+function hexToHsl(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let h = 0, s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h /= 6;
+  }
+  return [h, s, l];
+}
+
+function hslToHex(h, s, l) {
+  const f = (p, q, t) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  let r, g, b;
+  if (s === 0) { r = g = b = l; } else {
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = f(p, q, h + 1 / 3); g = f(p, q, h); b = f(p, q, h - 1 / 3);
+  }
+  return '#' + [r, g, b].map((x) => Math.round(Math.min(1, Math.max(0, x)) * 255).toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+function makePair(hex) {
+  const [h, s, l] = hexToHsl(hex);
+  if (l < 0.4) return [hslToHex(h, Math.min(1, s * 0.75), 0.72), hex];
+  if (l > 0.75) return [hex, hslToHex(h, Math.min(s, 0.55), 0.52)]; // 파스텔 → 차분한 중간 톤
+  return [hex, hslToHex(h, s, Math.max(0.22, l - 0.2))];
+}
+
+// 배경색 위에서 읽기 좋은 글자색 (진한 글씨 또는 흰 글씨)
+export function inkOn(hex) {
+  const n = parseInt(String(hex).slice(1), 16);
+  const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const L = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  return L > 0.36 ? '#2F2B27' : '#FFFFFF';
+}
+
+export const THEME_GROUPS = [
+  { id: 'rainbow', name: '레인보우', desc: '빨주노초파남보 + 분홍 순서' },
+  { id: 'mix', name: '컬러 믹스', desc: '여러 색을 조화롭게 섞은 조합' },
+];
+
+export const THEMES = THEME_SOURCES.map((t) => ({
+  id: t.id,
+  group: t.group,
+  name: t.name,
+  desc: t.desc,
+  c: t.base.map((hex, i) => [(t.names || RAINBOW)[i], ...makePair(hex)]),
+}));
 
 // 캘린더 스타일: 배경 · 선 · 색감 (글씨체는 FONTS에서 따로 선택)
 export const STYLES = [

@@ -1,8 +1,8 @@
 // 데이터 모델 · 로컬 저장
 //
 // 플래너 데이터 전체를 하나의 객체로 다룹니다.
-// - 로그인 전/Firebase 미설정: localStorage에만 저장
-// - 로그인 후: Firestore users/{uid} 문서에 저장하고 localStorage는 캐시로 사용
+// - 로그인 전/Supabase 미설정: localStorage에만 저장
+// - 로그인 후: Supabase planners 테이블에 저장하고 localStorage는 캐시로 사용
 
 const LS_PREFIX = 'exam-monthly:v1:';
 const DEVICE_KEY = 'exam-monthly:device-id';
@@ -16,7 +16,7 @@ export function defaultData() {
     books: [],
     todos: [],
     exams: [],
-    settings: { themeId: 'spring', styleId: 'grid', prevStyle: 'grid', fontId: 'myeongjo' },
+    settings: { themeId: 'rb-pastel', styleId: 'grid', prevStyle: 'grid', fontId: 'myeongjo', showGoal: true },
     devices: {},
     updatedAt: 0,
   };
@@ -59,7 +59,7 @@ export function saveLocal(scope, data) {
   }
 }
 
-// Firestore는 undefined 값을 거부하므로 JSON 왕복으로 정리
+// undefined 값이 섞이지 않도록 JSON 왕복으로 정리
 export function toPlain(data) {
   return JSON.parse(JSON.stringify(data));
 }
@@ -104,7 +104,7 @@ function arr(v) { return Array.isArray(v) ? v.slice() : []; }
 
 // ---------------------------------------------------------------- 동기화용 형식
 //
-// Firestore 문서는 항목별 맵으로 저장합니다.
+// 서버(Supabase planners.doc)에는 항목별 맵으로 저장합니다.
 //   { v: 2, todos: { <id>: '<JSON>' }, subjects: {...}, books: {...}, exams: {...},
 //     titles: { '2026-5': '제목' }, settings: { themeId: ... }, devices: { <id>: {...} } }
 // 항목 하나를 JSON 문자열 한 칸으로 두면 문서 색인 수가 적게 유지되고,

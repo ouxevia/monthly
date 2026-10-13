@@ -1,75 +1,111 @@
-// Firebase Google 로그인 + Firestore 동기화
+// Supabase 이메일 · 비밀번호 로그인 + 동기화
 //
-// users/{uid} 문서 하나에 플래너를 항목별 맵으로 저장하고 (형식은 store.js의 toRemote 참고),
-// onSnapshot으로 다른 기기의 변경을 실시간으로 받아옵니다.
-// 저장할 때는 바뀐 칸만 updateDoc으로 보내서, 두 기기가 서로 다른 항목을 고쳐도 합쳐집니다.
+// planners 테이블에 사용자마다 한 줄(doc jsonb)로 플래너를 저장합니다. (형식은 store.js의 toRemote 참고)
+// 저장할 때는 바뀐 칸만 apply_planner_ops 함수로 보내서, 두 기기가 서로 다른 항목을 고쳐도 합쳐집니다.
+// 다른 기기의 변경은 Realtime 알림을 받으면 다시 읽어 옵니다.
+// 테이블 · 함수 · 보안 규칙은 supabase.sql 참고.
 
-const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+// supabase-js (MIT) 를 저장소에 같이 넣어 둠: 외부 CDN이 막히거나 느려도 동작하도록
+const SDK = new URL('./vendor/supabase-2.116.0.js', import.meta.url).href;
 
-export async function initCloud(config, { onUser, onRemote, onError }) {
-  const [{ initializeApp }, auth, fs] = await Promise.all([
-    import(SDK + 'firebase-app.js'),
-    import(SDK + 'firebase-auth.js'),
-    import(SDK + 'firebase-firestore.js'),
-  ]);
+function loadSdk() {
+  if (window.supabase && window.supabase.createClient) return Promise.resolve(window.supabase);
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = SDK;
+    el.onload = () => (window.supabase ? resolve(window.supabase) : reject(new Error('supabase-js를 불러오지 못했어요')));
+    el.onerror = () => reject(new Error('supabase-js를 불러오지 못했어요'));
+    document.head.appendChild(el);
+  });
+}
 
-  const app = initializeApp(config);
-  const authInst = auth.getAuth(app);
-  const db = fs.getFirestore(app);
-  let ref = null;
-  let unsubscribe = null;
-
-  auth.onAuthStateChanged(authInst, (user) => {
-    if (unsubscribe) { unsubscribe(); unsubscribe = null; }
-    ref = user ? fs.doc(db, 'users', user.uid) : null;
-    onUser(user);
-    if (!ref) return;
-    unsubscribe = fs.onSnapshot(
-      ref,
-      (snap) => {
-        // 내가 방금 보낸 변경이 되돌아온 것이면 무시 (서버 확인 후 다시 옴)
-        if (snap.metadata.hasPendingWrites) return;
-        onRemote(snap.exists() ? snap.data() : null);
-      },
-      (err) => onError(err),
-    );
+export async function initCloud(config, { onUser, onRemote, onError, onRecovery }) {
+  const { createClient } = await loadSdk();
+  const sb = createClient(config.url, config.anonKey, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' },
   });
 
+  let uid = null;
+  let channel = null;
+  let announced = false; // 첫 상태(로그인 안 됨 포함)는 꼭 한 번 알려야 화면이 넘어감
+
+  async function fetchDoc() {
+    if (!uid) return;
+    const { data, error } = await sb.from('planners').select('doc').eq('user_id', uid).maybeSingle();
+    if (error) { onError(error); return; }
+    onRemote(data && data.doc ? data.doc : null);
+  }
+
+  function setUser(user) {
+    const next = user ? user.id : null;
+    if (announced && next === uid) return;
+    announced = true;
+    if (channel) { sb.removeChannel(channel); channel = null; }
+    uid = next;
+    onUser(user ? { uid: user.id, displayName: '', email: user.email || '', photoURL: '' } : null);
+    if (!uid) return;
+    channel = sb
+      .channel('planner-' + uid)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'planners', filter: 'user_id=eq.' + uid }, () => fetchDoc())
+      .subscribe();
+    fetchDoc();
+  }
+
+  sb.auth.onAuthStateChange((event, session) => {
+    // 비밀번호 재설정 메일의 링크로 들어온 경우: 새 비밀번호 입력받기
+    if (event === 'PASSWORD_RECOVERY' && onRecovery) setTimeout(onRecovery, 0);
+    // 콜백 안에서 바로 다른 Supabase 호출을 하면 멈출 수 있어서 한 박자 뒤에 처리
+    setTimeout(() => setUser(session ? session.user : null), 0);
+  });
+
+  // 다른 탭에서 돌아왔을 때 놓친 변경 다시 읽기
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') fetchDoc(); });
+
+  const { data } = await sb.auth.getSession();
+  setUser(data && data.session ? data.session.user : null);
+
+  async function rpc(ops) {
+    const { error } = await sb.rpc('apply_planner_ops', { ops });
+    if (error) throw error;
+  }
+
   return {
-    async signIn() {
-      const provider = new auth.GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      try {
-        await auth.signInWithPopup(authInst, provider);
-      } catch (err) {
-        if (err && (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment')) {
-          await auth.signInWithRedirect(authInst, provider);
-        } else if (!(err && (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request'))) {
-          throw err;
-        }
-      }
+    async signIn(email, password) {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
     },
-    signOut() {
-      return auth.signOut(authInst);
+    // 가입: 이메일 확인이 꺼져 있으면 바로 로그인되고 true, 확인 메일이 필요하면 false
+    async signUp(email, password) {
+      const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } });
+      if (error) throw error;
+      return Boolean(data && data.session);
+    },
+    async sendPasswordReset(email) {
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+      if (error) throw error;
+    },
+    async updatePassword(password) {
+      const { error } = await sb.auth.updateUser({ password });
+      if (error) throw error;
+    },
+    async signOut() {
+      await sb.auth.signOut();
     },
     // 처음 로그인: 문서 전체 만들기
     async create(doc) {
-      if (!ref) return;
-      await fs.setDoc(ref, doc, { merge: true });
+      const ops = [{ path: ['v'], value: doc.v }];
+      Object.keys(doc).forEach((g) => {
+        if (g === 'v') return;
+        Object.keys(doc[g]).forEach((k) => ops.push({ path: [g, k], value: doc[g][k] }));
+      });
+      await rpc(ops);
     },
     // 바뀐 칸만 보내기: ops = [{ path: [그룹, 키], value } | { path, del: true }]
     async update(ops) {
-      if (!ref || !ops.length) return;
-      const args = [];
-      ops.forEach((op) => {
-        args.push(new fs.FieldPath(op.path[0], op.path[1]), op.del ? fs.deleteField() : op.value);
-      });
-      await fs.updateDoc(ref, ...args);
+      if (ops.length) await rpc(ops);
     },
-    // 기기 목록은 따로 갱신 (플래너 내용과 섞이지 않게)
     async touchDevice(id, info) {
-      if (!ref) return;
-      await fs.setDoc(ref, { devices: { [id]: info } }, { merge: true });
+      await rpc([{ path: ['devices', id], value: info }]);
     },
   };
 }
