@@ -60,7 +60,7 @@ function hslToHex(h, s, l) {
   return '#' + [r, g, b].map((x) => Math.round(Math.min(1, Math.max(0, x)) * 255).toString(16).padStart(2, '0')).join('').toUpperCase();
 }
 
-function makePair(hex) {
+export function makePair(hex) {
   const [h, s, l] = hexToHsl(hex);
   if (l < 0.4) return [hslToHex(h, Math.min(1, s * 0.75), 0.72), hex];
   if (l > 0.75) return [hex, hslToHex(h, Math.min(s, 0.55), 0.52)]; // 파스텔 → 차분한 중간 톤
@@ -76,6 +76,7 @@ export function inkOn(hex) {
 }
 
 export const THEME_GROUPS = [
+  { id: 'custom', name: '내 팔레트', desc: '직접 고른 색으로 만든 조합' },
   { id: 'rainbow', name: '레인보우', desc: '빨주노초파남보 + 분홍 순서' },
   { id: 'mix', name: '컬러 믹스', desc: '여러 색을 조화롭게 섞은 조합' },
 ];
@@ -85,8 +86,23 @@ export const THEMES = THEME_SOURCES.map((t) => ({
   group: t.group,
   name: t.name,
   desc: t.desc,
+  base: t.base.slice(),
   c: t.base.map((hex, i) => [(t.names || RAINBOW)[i], ...makePair(hex)]),
 }));
+
+// 사용자가 만든 팔레트 → 테마 형식으로
+export function buildCustomTheme(p) {
+  const colors = (p.colors || []).filter((x) => /^#[0-9a-fA-F]{6}$/.test(x.hex));
+  const list = colors.length ? colors : [{ name: '색 1', hex: '#A9D3F0' }];
+  return {
+    id: p.id,
+    group: 'custom',
+    name: p.name || '내 팔레트',
+    desc: list.length + '가지 색',
+    base: list.map((x) => x.hex.toUpperCase()),
+    c: list.map((x, i) => [x.name || '색 ' + (i + 1), ...makePair(x.hex.toUpperCase())]),
+  };
+}
 
 // 캘린더 스타일: 배경 · 선 · 색감 (글씨체는 FONTS에서 따로 선택)
 export const STYLES = [

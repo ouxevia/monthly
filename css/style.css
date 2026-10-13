@@ -539,3 +539,30 @@ body.dark .notice-ok { color: #8FD6A8; }
   :root { --chip-h: 19px; }
   .chip-text { font-size: calc(var(--chip-fs) + 1.5px); }
 }
+
+/* ---------- 과목 약자 · 내 팔레트 · 글씨만 인쇄 ---------- */
+.chip-text .abbr { font-weight: 700; margin-right: 2px; }
+.ps-chip.mono { padding-left: 0; border-radius: 0; }
+.ps-chip.mono .ps-check { color: #1F1F1F; }
+.export-tabs { align-self: flex-start; }
+
+.pal-card { padding: 0; gap: 0; overflow: hidden; }
+.pal-pick { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 12px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; font-family: inherit; }
+.pal-tools { display: flex; gap: 6px; padding: 0 12px 12px; flex-wrap: wrap; }
+.pal-tools .btn { min-height: 30px; font-size: calc(12px * var(--k)); padding: 0 10px; gap: 4px; }
+.pal-new { align-items: center; justify-content: center; text-align: center; border-style: dashed; min-height: 120px; color: var(--label); gap: 6px; cursor: pointer; }
+.pal-new span { font-size: calc(16px * var(--k)); color: var(--card-ink); }
+.pal-new small { font-size: calc(12px * var(--k)); }
+.pal-editor { display: flex; flex-direction: column; gap: 14px; }
+.pal-top { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.pal-top select.field { min-width: 220px; }
+.pal-list { display: flex; flex-direction: column; gap: 8px; }
+.pal-row { display: flex; align-items: center; gap: 10px; border: 1px solid var(--mline); border-radius: 12px; padding: 8px 10px; }
+.pal-no { width: 20px; text-align: center; color: var(--hint); font-size: 13px; flex: none; }
+.pal-color { width: 48px; height: 40px; padding: 2px; border: 1px solid var(--btn-line); border-radius: 10px; background: var(--field-bg); cursor: pointer; flex: none; }
+.pal-cname { flex: 1; min-width: 80px; min-height: 40px; padding: 8px 10px; }
+.pal-preview { display: flex; gap: 4px; flex: none; }
+.pal-preview span { font-size: 12px; padding: 4px 8px; border-radius: 6px; }
+.pal-add { align-self: flex-start; }
+.pal-add small { color: var(--hint); }
+@media (max-width: 560px) { .pal-preview { display: none; } }
