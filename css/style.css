@@ -566,3 +566,7 @@ body.dark .notice-ok { color: #8FD6A8; }
 .pal-add { align-self: flex-start; }
 .pal-add small { color: var(--hint); }
 @media (max-width: 560px) { .pal-preview { display: none; } }
+
+/* 로그인 화면: 기기 저장 모드 */
+.login-or { display: flex; align-items: center; gap: 10px; color: var(--hint); font-size: 12px; }
+.login-or span { flex: 1; height: 1px; background: var(--mline); }
