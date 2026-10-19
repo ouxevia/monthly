@@ -31,6 +31,7 @@ const S = {
   },
 };
 const LOCAL_STARTED_KEY = 'exam-monthly:local-started';
+const OFFLINE_KEY = 'exam-monthly:offline'; // 서버는 있지만 로그인 없이 쓰기로 고른 기기
 // 폰처럼 좁은 화면: 칸에는 색 막대만, 날짜를 누르면 아래에 그날 할 일 목록
 const COMPACT_MQ = window.matchMedia('(max-width: 700px)');
 const isCompact = () => COMPACT_MQ.matches;
@@ -183,13 +184,13 @@ async function flushCloudSave() {
 }
 
 function syncLabel(short) {
-  if (S.mode === 'local') return short ? '이 기기에 저장' : '이 기기에만 저장 중 (로그인 없이 사용)';
+  if (S.mode === 'local' || !S.user) return short ? '이 기기에 저장' : '이 기기에만 저장 중 (로그인 없이 사용)';
   if (S.sync === 'syncing') return short ? '동기화 중' : '동기화 중…';
   if (S.sync === 'error') return short ? '동기화 실패' : '동기화에 실패했어요 · 인터넷 연결을 확인하세요';
   return short ? '동기화됨' : '모든 기기에 동기화됨' + (S.lastSync ? ' · 마지막 ' + relTime(S.lastSync) : '');
 }
 function syncDot() {
-  if (S.mode === 'local') return '#9AA0B0';
+  if (S.mode === 'local' || !S.user) return '#9AA0B0';
   return S.sync === 'syncing' ? '#E0A526' : S.sync === 'error' ? '#D2493F' : '#3FA46A';
 }
 function updateSyncBadge() {
@@ -215,6 +216,15 @@ async function boot() {
   // 로그인 화면에서도 마지막으로 쓰던 스타일을 보여주기
   const last = loadLocal('last');
   if (last) S.data.settings = last.settings;
+  let offline = false;
+  try { offline = localStorage.getItem(OFFLINE_KEY) === '1'; } catch (e) { /* 무시 */ }
+  if (offline) {
+    // 지난번에 "로그인 없이 쓰기"를 골랐으면 바로 캘린더로 (로그인된 상태면 onUser가 계정으로 바꿔 줌)
+    S.offline = true;
+    S.scope = 'local';
+    S.data = loadLocal('local') || S.data;
+    S.phase = 'app';
+  }
   applyTheme();
   render();
   // 서버가 느리거나 장애일 때 "불러오는 중"에 멈추지 않도록 10초 뒤 로그인 화면으로
@@ -239,7 +249,10 @@ async function boot() {
 function onUser(user) {
   // 로그인 없이 이 기기에서 쓰는 중이면 그대로 둠
   if (!user && S.offline) { render(); return; }
-  if (user) S.offline = false;
+  if (user) {
+    S.offline = false;
+    try { localStorage.removeItem(OFFLINE_KEY); } catch (e) { /* 무시 */ }
+  }
   if (!user) {
     S.user = null;
     S.base = null;
@@ -392,7 +405,7 @@ function viewLogin() {
        </div>` : ''}
        <button class="btn btn-lg btn-primary" data-act="${signup ? 'signup' : 'login'}"${L.busy ? ' disabled' : ''}>${L.busy ? '잠시만요…' : signup ? '가입하고 시작하기' : '로그인'}</button>
        ${L.info ? `<p class="hint small center">${esc(L.info)}</p>` : ''}
-       ${S.loginError && (!S.cloud || /서버/.test(S.loginError)) ? '<div class="row-wrap" style="justify-content:center"><button class="btn btn-sm" data-act="reload">새로고침</button><button class="btn btn-sm" data-act="start-local">로그인 없이 이 기기에서 쓰기</button></div>' : ''}
+       ${S.loginError && (!S.cloud || /서버/.test(S.loginError)) ? '<div class="row-wrap" style="justify-content:center"><button class="btn btn-sm" data-act="reload">새로고침</button></div>' : ''}
        ${signup ? '<p class="hint small center">폰 · 패드 · 노트북에서 같은 이메일과 비밀번호로 로그인하면 플래너가 동기화돼요.</p>'
          : '<button class="link-btn" data-act="forgot-pw" style="align-self:center">비밀번호를 잊었어요</button>'}`;
   }
@@ -406,6 +419,9 @@ function viewLogin() {
       <h2>시작하기</h2>
       ${body}
       ${S.loginError ? `<p class="error-text">${esc(S.loginError)}</p>` : ''}
+      ${isCloudConfigured ? `<div class="login-or"><span></span>또는<span></span></div>
+      <button class="btn" data-act="start-local">로그인 없이 이 기기에서 쓰기</button>
+      <p class="hint small center" style="margin:-8px 0 0">기기 저장 모드: 이 브라우저에만 저장돼요. 나중에 로그인하면<br>처음 만드는 계정으로 그대로 옮겨져요.</p>` : ''}
       <div class="login-foot">
         <span>화면 스타일</span>
         <button class="btn btn-sm" data-act="toggle-night" aria-pressed="${isNight()}">${ICON.moon}${isNight() ? '나이트모드 끄기' : '나이트모드'}</button>
@@ -1196,6 +1212,7 @@ const actions = {
   reload: () => location.reload(),
   'go-login': () => {
     S.offline = false;
+    try { localStorage.removeItem(OFFLINE_KEY); } catch (e) { /* 무시 */ }
     S.ui.modal = null;
     S.phase = 'login';
     S.loginError = S.cloud ? '' : '동기화 서버에 아직 연결되지 않았어요. 새로고침 후 다시 시도해 주세요.';
@@ -1214,6 +1231,7 @@ const actions = {
     if (S.mode === 'cloud') {
       // 서버 설정은 돼 있지만 지금은 로그인 없이 이 기기에만 저장 (나중에 첫 로그인 때 계정으로 옮겨짐)
       S.offline = true;
+      try { localStorage.setItem(OFFLINE_KEY, '1'); } catch (e) { /* 무시 */ }
       S.scope = 'local';
       S.data = loadLocal('local') || S.data;
       applyTheme();
