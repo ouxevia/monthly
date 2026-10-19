@@ -96,10 +96,24 @@ const LIGHT_MIN = 0.45; // 미완료: 이 이상 밝아야 검은 글씨가 또�
 const DEEP_MAX = 0.15; // 완료: 이 이하로 진해야 흰 글씨가 또렷함
 
 // 기준색의 색상(hue)은 그대로 두고 밝기만 조절해서 [미완료색, 완료색]을 만듦
-export function makePair(hex) {
+function mixWhite(hex, t) {
+  const n = parseInt(hex.slice(1), 16);
+  return '#' + [n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.round(v + (255 - v) * t).toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+// soft: 미완료색을 흰색에 가까운 옅은 색으로 (무비 · 시티 무드)
+export function makePair(hex, soft = false) {
   const [h, s, l] = hexToHsl(hex);
   let light = hex;
-  if (luminance(hex) < LIGHT_MIN) {
+  if (soft) {
+    // 흰색을 같은 비율로 섞어 옅게 (원래 색끼리의 밝기 차이는 그대로 남음)
+    // 회색빛으로 바래지 않게 채도는 조금 살려 줌 (원래 무채색이면 그대로)
+    // 원래 아주 밝은 색은 종이 배경에 묻히지 않게 흰색을 덜 섞음
+    let t = 0.7;
+    while (t > 0.2 && luminance(mixWhite(hex, t)) > 0.82) t -= 0.05;
+    const [mh, ms, ml] = hexToHsl(mixWhite(hex, t));
+    light = hslToHex(mh, s < 0.08 ? ms : Math.max(ms, 0.3), ml);
+  } else if (luminance(hex) < LIGHT_MIN) {
     const ls = Math.min(s, 0.45); // 진한 색을 밝힐 때 형광처럼 보이지 않게
     for (let x = Math.max(l, 0.5); x <= 0.97; x += 0.01) {
       light = hslToHex(h, ls, x);
@@ -130,13 +144,15 @@ export const THEME_GROUPS = [
   { id: 'mix', name: '컬러 믹스', desc: '여러 색을 조화롭게 섞은 조합' },
 ];
 
+const SOFT_GROUPS = ['movie', 'city'];
+
 export const THEMES = THEME_SOURCES.map((t) => ({
   id: t.id,
   group: t.group,
   name: t.name,
   desc: t.desc,
   base: t.base.slice(),
-  c: t.base.map((hex, i) => [(t.names || RAINBOW)[i], ...makePair(hex)]),
+  c: t.base.map((hex, i) => [(t.names || RAINBOW)[i], ...makePair(hex, SOFT_GROUPS.includes(t.group))]),
 }));
 
 // 사용자가 만든 팔레트 → 테마 형식으로
