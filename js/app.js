@@ -985,7 +985,7 @@ function colorBody() {
     return `<div class="pick-card pal-card${on ? ' on' : ''}">
       <button class="pal-pick" data-act="pick-theme" data-id="${t.id}" aria-pressed="${on}">
         <span class="pick-name">${esc(t.name)} <small>${esc(t.desc)}</small>${pickMark(on, settings().themeId === t.id)}</span>
-        <span class="swatch-row" style="grid-template-columns:repeat(${Math.max(8, t.c.length)}, minmax(0, 1fr))">${sw}</span>
+        <span class="swatch-row" style="grid-template-columns:repeat(${Math.max(10, t.c.length)}, minmax(0, 1fr))">${sw}</span>
       </button>
       ${custom ? `<div class="pal-tools"><button class="btn btn-sm" data-act="pal-edit" data-id="${t.id}">${ICON.pencil}편집</button><button class="btn btn-sm danger" data-act="pal-delete" data-id="${t.id}">삭제</button></div>`
         : `<div class="pal-tools"><button class="btn btn-sm" data-act="pal-copy" data-id="${t.id}">${ICON.plus}이 색으로 내 팔레트 만들기</button></div>`}
@@ -1001,7 +1001,7 @@ function colorBody() {
 
 function paletteEditor() {
   const ed = S.ui.palEdit;
-  const presets = THEMES.map((t) => `<option value="${t.id}">${esc(t.name)} (${t.group === 'rainbow' ? '레인보우' : '컬러 믹스'})</option>`).join('');
+  const presets = THEMES.map((t) => `<option value="${t.id}">${esc(t.name)} (${(THEME_GROUPS.find((g) => g.id === t.group) || {}).name || ''})</option>`).join('');
   const rows = ed.colors.map((c, i) => {
     const [light, deep] = makePair(c.hex);
     return `<div class="pal-row">
@@ -1434,7 +1434,7 @@ const actions = {
   'pick-font': (el) => { pendingOf().fontId = el.dataset.id; render(); },
   'pal-new': () => {
     const th = findTheme(pendingOf().themeId) || curTheme();
-    S.ui.palEdit = { id: null, name: '', colors: th.base.slice(0, 8).map((hex, i) => ({ name: th.c[i][0], hex })) };
+    S.ui.palEdit = { id: null, name: '', colors: th.base.slice(0, 10).map((hex, i) => ({ name: th.c[i][0], hex })) };
     render();
   },
   'pal-copy': (el) => {
