@@ -95,7 +95,8 @@ function customPalettes() {
 function saveCustomPalettes(list) { settings().customThemes = JSON.stringify(list); }
 const allThemes = () => customPalettes().map(buildCustomTheme).concat(THEMES);
 const findTheme = (id) => allThemes().find((t) => t.id === id) || null;
-const curTheme = () => findTheme(settings().themeId) || THEMES[0];
+// 없어진 테마를 고르고 있었으면 기본 테마로
+const curTheme = () => findTheme(settings().themeId) || findTheme('rb-pastel') || THEMES[0];
 // 색 개수가 테마마다 달라서 순번은 항상 나머지로 맞춤
 const tc = (th, i) => th.c[((i % th.c.length) + th.c.length) % th.c.length];
 const abbrOf = (s) => (s ? (s.abbr || Array.from(s.name || '')[0] || '') : '');
