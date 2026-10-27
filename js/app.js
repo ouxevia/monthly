@@ -63,6 +63,8 @@ const ICON = {
   plus: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
   check: '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>',
   close: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  up: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>',
+  down: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>',
   x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   pencil: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>',
   left: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>',
@@ -916,6 +918,13 @@ function examBody() {
     </div>`;
 }
 
+// 카테고리 목록의 위/아래로 옮기기 버튼
+function moveBtns(kind, item, list) {
+  const i = list.indexOf(item);
+  return `<button class="icon-btn sm" data-act="move-cat" data-kind="${kind}" data-id="${item.id}" data-dir="-1" aria-label="${esc(item.name)} 위로"${i === 0 ? ' disabled' : ''}>${ICON.up}</button>
+      <button class="icon-btn sm" data-act="move-cat" data-kind="${kind}" data-id="${item.id}" data-dir="1" aria-label="${esc(item.name)} 아래로"${i === list.length - 1 ? ' disabled' : ''}>${ICON.down}</button>`;
+}
+
 function categoryBody() {
   const subId = S.ui.catSubject;
   const sub = byId(S.data.subjects, subId);
@@ -928,6 +937,7 @@ function categoryBody() {
         <span class="sw" style="background:${c[1]}"></span><span class="sw sw-overlap" style="background:${c[2]}"></span>
         <span class="list-name">${esc(s.name)}</span><span class="hint small">문제집 ${n}</span>
       </button>
+      ${moveBtns('subjects', s, S.data.subjects)}
       <button class="icon-btn sm" data-act="rename-subject" data-id="${s.id}" aria-label="${esc(s.name)} 이름 바꾸기">${ICON.pencil}</button>
       <button class="icon-btn sm" data-act="delete-subject" data-id="${s.id}" aria-label="${esc(s.name)} 삭제">${ICON.x}</button>
     </div>`;
@@ -938,8 +948,10 @@ function categoryBody() {
     right = '<span class="hint">왼쪽에서 과목을 고르면, 그 과목의 문제집을 등록할 수 있어요.</span>';
   } else {
     const swatches = th.c.map((c, i) => `<button class="color-sw${sub.color % th.c.length === i ? ' on' : ''}" data-act="subject-color" data-i="${i}" style="background:${c[1]};border-color:${c[2]}" aria-label="${esc(c[0])} 색으로 바꾸기" title="${esc(c[0])}"></button>`).join('');
-    const books = S.data.books.filter((b) => b.subjectId === sub.id).map((b) => `<div class="list-row book-row">
+    const subBooks = S.data.books.filter((b) => b.subjectId === sub.id);
+    const books = subBooks.map((b) => `<div class="list-row book-row">
         <span class="list-name">${esc(b.name)}</span>
+        ${moveBtns('books', b, subBooks)}
         <button class="icon-btn sm" data-act="rename-book" data-id="${b.id}" aria-label="${esc(b.name)} 이름 바꾸기">${ICON.pencil}</button>
         <button class="icon-btn sm" data-act="delete-book" data-id="${b.id}" aria-label="${esc(b.name)} 삭제">${ICON.x}</button>
       </div>`).join('') || '<span class="hint">아직 등록된 문제집이 없어요.</span>';
@@ -1391,6 +1403,21 @@ const actions = {
       const v = ab.trim().replace(/[()]/g, '').slice(0, 3);
       if (v) s.abbr = v; else delete s.abbr;
     }
+    commit();
+  },
+  // 과목 · 문제집 순서 바꾸기 (문제집은 같은 과목 안에서만)
+  'move-cat': (el) => {
+    const kind = el.dataset.kind;
+    const all = S.data[kind];
+    const item = byId(all, el.dataset.id);
+    if (!item) return;
+    const peers = kind === 'books' ? all.filter((b) => b.subjectId === item.subjectId) : all;
+    const other = peers[peers.indexOf(item) + Number(el.dataset.dir)];
+    if (!other) return;
+    const a = all.indexOf(item), b = all.indexOf(other);
+    all[a] = other;
+    all[b] = item;
+    all.forEach((x, i) => { x.order = i; });
     commit();
   },
   'delete-subject': (el) => {
