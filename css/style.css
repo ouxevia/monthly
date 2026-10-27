@@ -209,6 +209,14 @@ body.dark .cell.drop { background: rgba(138, 180, 255, 0.18); }
 }
 .chip.done { color: #FFFFFF; }
 .chip.dragging { opacity: 0.35; }
+/* 끌어서 놓을 자리 표시 */
+.chip { position: relative; }
+.chip.drop-before::before, .chip.drop-after::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 2px; border-radius: 2px; background: var(--ink); pointer-events: none;
+}
+.chip.drop-before::before { top: calc(var(--chip-gap, 3px) / -2 - 1px); }
+.chip.drop-after::after { bottom: calc(var(--chip-gap, 3px) / -2 - 1px); }
+body.dark .chip.drop-before::before, body.dark .chip.drop-after::after { background: #E8E4DC; }
 .chip-check {
   width: 12px; height: 12px; flex: none; padding: 0; border-radius: 50%;
   border: 1.3px solid currentColor; background: transparent; color: inherit;

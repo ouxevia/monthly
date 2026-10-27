@@ -93,7 +93,8 @@ function luminance(hex) {
 }
 
 const LIGHT_MIN = 0.45; // 미완료: 이 이상 밝아야 검은 글씨가 또렷함
-const DEEP_MAX = 0.15; // 완료: 이 이하로 진해야 흰 글씨가 또렷함
+const DEEP_MAX = 0.2; // 완료: 이 이하로 진해야 흰 글씨가 또렷함
+const DEEP_MIN = 0.06; // 완료: 이보다 어두우면 너무 시커멓게 보여서 살짝 밝힘
 
 // 기준색의 색상(hue)은 그대로 두고 밝기만 조절해서 [미완료색, 완료색]을 만듦
 function mixWhite(hex, t) {
@@ -120,12 +121,18 @@ export function makePair(hex, soft = false) {
       if (luminance(light) >= LIGHT_MIN) break;
     }
   }
+  // 완료색: 흰 글씨가 읽히는 범위(휘도 DEEP_MIN~DEEP_MAX) 안에서 너무 시커멓지 않게
   let deep = hex;
+  const ds = Math.min(s, 0.5); // 파스텔이 진해질 때 쨍해지지 않게
   if (luminance(hex) > DEEP_MAX) {
-    const ds = Math.min(s, 0.5); // 파스텔이 진해질 때 쨍해지지 않게
-    for (let x = Math.min(l, 0.5); x >= 0.05; x -= 0.01) {
+    for (let x = Math.min(l, 0.6); x >= 0.05; x -= 0.01) {
       deep = hslToHex(h, ds, x);
       if (luminance(deep) <= DEEP_MAX) break;
+    }
+  } else if (luminance(hex) < DEEP_MIN) {
+    for (let x = l; x <= 0.6; x += 0.01) {
+      deep = hslToHex(h, ds, x);
+      if (luminance(deep) >= DEEP_MIN) break;
     }
   }
   return [light, deep];
