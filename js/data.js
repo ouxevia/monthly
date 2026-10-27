@@ -108,6 +108,7 @@ const LIGHT_MIN = 0.45; // 미완료: 이 이상 밝아야 검은 글씨가 또�
 // 완료색은 모든 색을 같은 깊이로: 흰 글씨가 읽히는 선에서 최대한 옅게 (휘도 0.21~0.26)
 const DEEP_MAX = 0.26; // 이보다 밝으면 흰 글씨가 흐려짐
 const DEEP_MIN = 0.21; // 이보다 어두우면 무겁게 보여서 밝힘
+const DEEP_SAT = 0.32; // 완료색 채도 상한: 낮을수록 회색이 섞인 탁한 톤
 
 // 기준색의 색상(hue)은 그대로 두고 밝기만 조절해서 [미완료색, 완료색]을 만듦
 function mixWhite(hex, t) {
@@ -134,19 +135,15 @@ export function makePair(hex, soft = false) {
       if (luminance(light) >= LIGHT_MIN) break;
     }
   }
-  // 완료색: 흰 글씨가 읽히는 범위(휘도 DEEP_MIN~DEEP_MAX) 안에서 너무 시커멓지 않게
-  let deep = hex;
-  const ds = Math.min(s, 0.5); // 파스텔이 진해질 때 쨍해지지 않게
-  if (luminance(hex) > DEEP_MAX) {
-    for (let x = Math.min(l, 0.6); x >= 0.05; x -= 0.01) {
-      deep = hslToHex(h, ds, x);
-      if (luminance(deep) <= DEEP_MAX) break;
-    }
-  } else if (luminance(hex) < DEEP_MIN) {
-    for (let x = l; x <= 0.6; x += 0.01) {
-      deep = hslToHex(h, ds, x);
-      if (luminance(deep) >= DEEP_MIN) break;
-    }
+  // 완료색: 회색이 살짝 섞인 톤다운 색으로, 흰 글씨가 읽히는 깊이(휘도 DEEP_MIN~DEEP_MAX)에 맞춤
+  // 기준색이 원래 그 깊이여도 채도는 낮춰서 모든 색이 같은 차분한 톤이 되게 함
+  // 원래 색끼리의 차이는 조금 남김: 원래 채도가 낮을수록 더 회색빛, 원래 밝을수록 범위 안에서 조금 더 옅게
+  const ds = Math.min(s, DEEP_SAT * Math.min(1, s / 0.5));
+  const target = DEEP_MIN + (DEEP_MAX - DEEP_MIN) * Math.min(1, Math.max(0, (l - 0.2) / 0.6));
+  let deep = hslToHex(h, ds, 0.7);
+  for (let x = 0.7; x >= 0.05; x -= 0.005) {
+    deep = hslToHex(h, ds, x);
+    if (luminance(deep) <= target) break;
   }
   return [light, deep];
 }
