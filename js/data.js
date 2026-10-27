@@ -203,6 +203,9 @@ export const FONTS = [
   { id: 'dodum', name: '고운돋움', desc: '깔끔한 고딕체', family: "'Gowun Dodum', sans-serif", scale: 1, chip: 11.5 },
   { id: 'gaegu', name: '개구', desc: '동글동글 손글씨', family: "'Gaegu', cursive", scale: 1.15, chip: 12.5 },
   { id: 'pen', name: '나눔펜', desc: '다이어리 펜 손글씨', family: "'Nanum Pen Script', cursive", scale: 1.3, chip: 14 },
+  // 그리운 묘은체 (www.griun.co.kr): 원본 파일 그대로 fonts/ 에 둠 (파일 수정 금지 조건)
+  { id: 'myoeun-heullim', name: '그리운 묘은 흘림', desc: '흐르듯 이어 쓴 손글씨', family: "'Griun Myoeun Heullim', cursive", scale: 1.05, chip: 12 },
+  { id: 'myoeun-ddobak', name: '그리운 묘은 또박', desc: '또박또박 정갈한 손글씨', family: "'Griun Myoeun Ddobak', cursive", scale: 1.05, chip: 12 },
 ];
 
 export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
