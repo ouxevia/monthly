@@ -3,6 +3,10 @@
    색 · 선 · 글씨체 값은 js/app.js의 applyTheme()가 CSS 변수로 넣어줍니다.
    ============================================================ */
 
+/* 그리운 묘은체: 글씨체로 고를 때만 내려받음 (파일이 커서 swap으로 먼저 다른 글씨로 보여 줌) */
+@font-face { font-family: 'Griun Myoeun Heullim'; src: url('../fonts/Griun_MyoeunHeullim-Rg.ttf') format('truetype'); font-display: swap; }
+@font-face { font-family: 'Griun Myoeun Ddobak'; src: url('../fonts/Griun_Myoeunddobak-Rg.ttf') format('truetype'); font-display: swap; }
+
 :root {
   --ink: #2F2B27;
   --sub: #6F6A62;
