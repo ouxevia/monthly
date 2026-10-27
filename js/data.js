@@ -35,6 +35,18 @@ const THEME_SOURCES = [
   { id: 'ct-sydney', group: 'city', name: '시드니', desc: '하버 · 본다이 비치 · 자카란다', names: ['하버 블루', '오페라하우스', '본다이 아쿠아', '샌드', '유칼립투스', '자카란다', '산호', '선샤인', '레드 센터', '딥 오션'], base: ['#1E6EA8', '#F0EEE6', '#5EC4C8', '#E8CFA0', '#8AAE9A', '#9E86D0', '#F08A72', '#F2C84E', '#B8502E', '#123A5E'] },
   { id: 'ct-seoul', group: 'city', name: '서울', desc: '단청 · 한강 · 은행잎', names: ['단청 레드', '단청 그린', '한강 블루', '남산 그레이', '벚꽃', '은행잎', '한복 분홍', '쪽빛', '기와 차콜', '백자'], base: ['#B83A30', '#3E8A6A', '#4E7EAE', '#8C9098', '#F2C4CC', '#EDC23E', '#E07898', '#2A3E6E', '#3A3A40', '#EEEAE0'] },
 
+  // 여행지 · 영화 · 문구점에서 골라 담은 추천 조합
+  { id: 'pk-santorini', group: 'pick', name: '산토리니', desc: '에게해 · 흰 벽 · 부겐빌레아', names: ['에게해 블루', '레몬', '부겐빌레아', '올리브', '하늘', '테라코타', '라벤더', '모래', '딥 씨', '화이트 워시'], base: ['#1F5FA8', '#E8C547', '#C2417A', '#7C8A4E', '#7FB2DE', '#C0643E', '#9C8CC4', '#D9C29A', '#183E6E', '#E4E0D6'] },
+  { id: 'pk-kyoto', group: 'pick', name: '교토의 가을', desc: '단풍 · 은행 · 말차', names: ['단풍 레드', '은행 옐로', '말차', '쪽빛', '감 오렌지', '등나무', '기와 그레이', '연분홍', '이끼', '나무 브라운'], base: ['#B83A2E', '#E2B33C', '#7E9A4E', '#2E4A72', '#E07E3C', '#8E78B0', '#6E7076', '#E8A8B0', '#4E6A3E', '#7A5238'] },
+  { id: 'pk-aurora', group: 'pick', name: '아이슬란드 오로라', desc: '오로라 · 빙하 · 화산석', names: ['오로라 그린', '밤하늘', '핑크 오로라', '빙하 블루', '퍼플', '이끼', '노을', '온천 아쿠아', '화산석', '눈'], base: ['#3EBF8E', '#1E2A4E', '#D46EA8', '#8EC8DE', '#7A5EB4', '#8AA05A', '#E89A6E', '#5EC4C0', '#4A4A50', '#DDE4EA'] },
+  { id: 'pk-marrakech', group: 'pick', name: '마라케시', desc: '마조렐 블루 · 사프란 · 민트티', names: ['마조렐 블루', '사프란', '민트티', '장미', '테라코타', '타일 청록', '사막 모래', '향신료 레드', '대추야자', '라임워시'], base: ['#2E4FB0', '#E8A23A', '#6EAA8A', '#D47A8A', '#B85A36', '#2E8A8E', '#D8B78A', '#A8322E', '#6E3E2A', '#E2D6B8'] },
+  { id: 'pk-budapest', group: 'pick', name: '그랜드 부다페스트 호텔', desc: '핑크 호텔 · 보라 제복 · 케이크 상자', names: ['멘들스 핑크', '벨보이 퍼플', '머스타드', '스노우 블루', '엘리베이터 레드', '민트', '라일락', '초콜릿', '스카이', '크림'], base: ['#E8A0B0', '#5E3A6E', '#D8A83E', '#A8C4DE', '#B8323E', '#8EC4B0', '#9E86B8', '#5A3A2E', '#6E9EC8', '#E6DAC0'] },
+  { id: 'pk-jeju', group: 'pick', name: '제주', desc: '감귤 · 유채꽃 · 현무암', names: ['감귤', '제주 바다', '동백', '유채꽃', '오름 그린', '수국', '현무암', '하늘', '해녀 블루', '모래'], base: ['#F08A2E', '#2E8AB0', '#C0323E', '#EAC83E', '#6E9A4E', '#8E86C8', '#4A4A4E', '#9CC8E6', '#1E4A6E', '#DCCBA8'] },
+  { id: 'pk-forest', group: 'pick', name: '리틀 포레스트', desc: '시골 부엌 · 텃밭 · 사계절', names: ['토마토', '들깨 그린', '호박', '겨울 하늘', '고구마 퍼플', '꽃분홍', '밤 브라운', '논 초록', '밤하늘', '막걸리 크림'], base: ['#D04A3A', '#6E8A4A', '#E2963E', '#9AB4C8', '#8A5E86', '#E4A0A8', '#8A5A3A', '#A8B85E', '#2E3A52', '#E2D8BE'] },
+  { id: 'pk-provence', group: 'pick', name: '프로방스', desc: '라벤더 밭 · 해바라기 · 올리브', names: ['라벤더', '해바라기', '지중해 블루', '로즈', '올리브', '테라코타', '시냇물', '포도 와인', '세이지', '석회암'], base: ['#9A84C8', '#EAC23E', '#3A72B0', '#D88A9A', '#7A8A4A', '#C2683E', '#6EB0B8', '#6E2A44', '#A8B8A0', '#D6C6A8'] },
+  { id: 'pk-nordic', group: 'pick', name: '노르딕', desc: '피오르 · 링곤베리 · 자작나무', names: ['피오르 블루', '링곤베리', '버터', '숲', '오로라 민트', '모브', '라이트 우드', '블루베리', '안개', '차콜'], base: ['#3E6E96', '#B8324A', '#EAD08A', '#3E5E4A', '#8ECDB8', '#A88AA8', '#C8A07A', '#4A4A8A', '#B8C2C8', '#3E4048'] },
+  { id: 'pk-stationery', group: 'pick', name: '문구점', desc: '형광펜 · 색연필 · 포스트잇', names: ['형광 핑크', '레몬', '민트', '하늘', '라벤더', '피치', '그린', '코랄', '네이비 펜', '연필 그레이'], base: ['#F08AA8', '#F2D45A', '#7ED0B8', '#84B8EA', '#B49ADE', '#F4A882', '#8CC46A', '#F07A6A', '#2E3E7A', '#8A8A8E'] },
+
   // 빨주노초파남보 + 분홍 (+ 청록 · 모카): 같은 무지개를 톤만 다르게
   { id: 'rb-pastel', group: 'rainbow', name: '파스텔', desc: '부드러운 파스텔 무지개', base: ['#F5A9A9', '#F9C99B', '#F7E08E', '#BCE2A8', '#A9D3F0', '#AEB9EC', '#CDB6EC', '#F5B9D6', '#A8DED8', '#D8C8B8'] },
   { id: 'rb-vivid', group: 'rainbow', name: '원색', desc: '쨍한 원색 무지개', base: ['#E8443A', '#F28C28', '#F5C518', '#3DAA4E', '#1E90E0', '#3949AB', '#8E44AD', '#EC4F98', '#12A89A', '#8D5A3B'] },
@@ -93,8 +105,9 @@ function luminance(hex) {
 }
 
 const LIGHT_MIN = 0.45; // 미완료: 이 이상 밝아야 검은 글씨가 또렷함
-const DEEP_MAX = 0.2; // 완료: 이 이하로 진해야 흰 글씨가 또렷함
-const DEEP_MIN = 0.06; // 완료: 이보다 어두우면 너무 시커멓게 보여서 살짝 밝힘
+// 완료색은 모든 색을 같은 깊이로: 흰 글씨가 딱 읽힐 만큼만 진하게 (휘도 0.16~0.2)
+const DEEP_MAX = 0.2; // 이보다 밝으면 흰 글씨가 흐려짐
+const DEEP_MIN = 0.16; // 이보다 어두우면 너무 시커멓게 보여서 밝힘
 
 // 기준색의 색상(hue)은 그대로 두고 밝기만 조절해서 [미완료색, 완료색]을 만듦
 function mixWhite(hex, t) {
@@ -102,7 +115,7 @@ function mixWhite(hex, t) {
   return '#' + [n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.round(v + (255 - v) * t).toString(16).padStart(2, '0')).join('').toUpperCase();
 }
 
-// soft: 미완료색을 흰색에 가까운 옅은 색으로 (무비 · 시티 무드)
+// soft: 미완료색을 흰색에 가까운 옅은 색으로 (무비 · 시티 무드 · 추천 팔레트)
 export function makePair(hex, soft = false) {
   const [h, s, l] = hexToHsl(hex);
   let light = hex;
@@ -147,11 +160,12 @@ export const THEME_GROUPS = [
   { id: 'custom', name: '내 팔레트', desc: '직접 고른 색으로 만든 조합' },
   { id: 'movie', name: '무비 무드', desc: '영화 장면에서 뽑은 색감' },
   { id: 'city', name: '시티 무드', desc: '도시 풍경에서 뽑은 색감' },
+  { id: 'pick', name: '추천 팔레트', desc: '여행지 · 영화 · 문구점에서 골라 담은 조합' },
   { id: 'rainbow', name: '레인보우', desc: '빨주노초파남보 + 분홍 순서' },
   { id: 'mix', name: '컬러 믹스', desc: '여러 색을 조화롭게 섞은 조합' },
 ];
 
-const SOFT_GROUPS = ['movie', 'city'];
+const SOFT_GROUPS = ['movie', 'city', 'pick'];
 
 export const THEMES = THEME_SOURCES.map((t) => ({
   id: t.id,
