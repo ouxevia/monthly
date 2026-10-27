@@ -99,6 +99,17 @@ const findTheme = (id) => allThemes().find((t) => t.id === id) || null;
 const curTheme = () => findTheme(settings().themeId) || findTheme('rb-pastel') || THEMES[0];
 // 색 개수가 테마마다 달라서 순번은 항상 나머지로 맞춤
 const tc = (th, i) => th.c[((i % th.c.length) + th.c.length) % th.c.length];
+// 날짜별 할 일 목록: 직접 정한 순서(order)대로, 과목순 정렬을 켜면 과목 순서가 먼저
+function todosByDay() {
+  const map = {};
+  S.data.todos.forEach((t) => { (map[t.date] = map[t.date] || []).push(t); });
+  const rank = {};
+  const bySubject = settings().sortBySubject === true;
+  if (bySubject) S.data.subjects.forEach((s, i) => { rank[s.id] = i; });
+  const r = (t) => (t.subjectId in rank ? rank[t.subjectId] : 1e9);
+  Object.keys(map).forEach((k) => map[k].sort((a, b) => (bySubject ? r(a) - r(b) : 0) || (a.order || 0) - (b.order || 0)));
+  return map;
+}
 const abbrOf = (s) => (s ? (s.abbr || Array.from(s.name || '')[0] || '') : '');
 const curStyle = () => STYLES.find((s) => s.id === settings().styleId) || STYLES[2];
 const curFont = () => FONTS.find((f) => f.id === settings().fontId) || FONTS[0];
@@ -489,8 +500,7 @@ function viewCalendar() {
   while (cells.length % 7) cells.push(0);
   const rows = cells.length / 7;
 
-  const todosByDate = {};
-  S.data.todos.forEach((t) => { (todosByDate[t.date] = todosByDate[t.date] || []).push(t); });
+  const todosByDate = todosByDay();
 
   const compact = isCompact();
   const sel = selectedDate();
@@ -552,7 +562,7 @@ function viewDayPanel(k, list, ex) {
   const wd = WEEKDAYS_KO[new Date(y, m - 1, d).getDay()];
   const dd = ex ? dayNum(ex.date) - dayNum(k) : null;
   const items = list.map((t) => viewChip(t).replace('class="chip', 'class="chip chip-lg')).join('') || '<p class="hint" style="margin:4px 0">이 날은 아직 할 일이 없어요.</p>';
-  return `<section class="day-panel" aria-label="${m}월 ${d}일 할 일">
+  return `<section class="day-panel" data-date="${k}" aria-label="${m}월 ${d}일 할 일">
     <div class="day-head">
       <span class="day-title">${m}월 ${d}일 (${wd})</span>
       ${hol ? `<span class="hol">${esc(hol)}</span>` : ''}
@@ -623,8 +633,7 @@ function viewPrintSheet() {
   const LINE = 13;
   const maxLines = Math.max(1, Math.floor((rowH - 24) / LINE));
 
-  const todosByDate = {};
-  S.data.todos.forEach((t) => { (todosByDate[t.date] = todosByDate[t.date] || []).push(t); });
+  const todosByDate = todosByDay();
 
   let grid = '<div class="ps-head-row">' + WEEKDAYS.map((w, i) => `<div class="ps-wd" style="color:${i === 0 ? st.sun : i === 6 ? st.sat : st.ink}">${w}</div>`).join('') + '</div>';
   for (let r = 0; r < rows; r++) {
@@ -730,7 +739,7 @@ function viewLegend() {
   }).join('');
   return `<footer class="legend">
     <span class="sub-text">Category1</span>${items}
-    <span class="sub-text legend-help">옆으로 밀기 = 다음 달 · 칩 드래그 = 날짜 이동 (터치는 길게 눌러서) · 동그라미 = 완료 · 왼쪽 칸 미완료 / 오른쪽 칸 완료</span>
+    <span class="sub-text legend-help">옆으로 밀기 = 다음 달 · 칩 드래그 = 날짜 이동 · 순서 바꾸기 (터치는 길게 눌러서) · 동그라미 = 완료 · 왼쪽 칸 미완료 / 오른쪽 칸 완료</span>
   </footer>`;
 }
 
@@ -825,7 +834,7 @@ const PENDING_TABS = ['style', 'color', 'font', 'display'];
 function pendingOf() {
   if (!S.ui.pending) {
     const st = settings();
-    S.ui.pending = { styleId: st.styleId, prevStyle: st.prevStyle, themeId: st.themeId, fontId: st.fontId, showGoal: st.showGoal !== false, showAbbr: st.showAbbr !== false };
+    S.ui.pending = { styleId: st.styleId, prevStyle: st.prevStyle, themeId: st.themeId, fontId: st.fontId, showGoal: st.showGoal !== false, showAbbr: st.showAbbr !== false, sortBySubject: st.sortBySubject === true };
   }
   return S.ui.pending;
 }
@@ -834,7 +843,7 @@ function pendingChanged() {
   const p = S.ui.pending;
   if (!p) return false;
   const st = settings();
-  return p.styleId !== st.styleId || p.themeId !== st.themeId || p.fontId !== st.fontId || p.showGoal !== (st.showGoal !== false) || p.showAbbr !== (st.showAbbr !== false);
+  return p.styleId !== st.styleId || p.themeId !== st.themeId || p.fontId !== st.fontId || p.showGoal !== (st.showGoal !== false) || p.showAbbr !== (st.showAbbr !== false) || p.sortBySubject !== (st.sortBySubject === true);
 }
 
 function pickMark(isPending, isCurrent) {
@@ -1054,6 +1063,7 @@ function displayBody() {
   return `<div class="switch-list">
     ${sw('toggle-goal', p.showGoal, 'GOAL (이번 달 목표) 표시', '끄면 캘린더 위의 GOAL 칸과 인쇄용 A4에서 목표가 숨겨져요. 적어 둔 목표는 지워지지 않아요.')}
     ${sw('toggle-abbr', p.showAbbr, '과목 약자 표시', '할 일 앞에 (수) (영)처럼 과목 첫 글자를 붙여요. 약자는 환경설정 → 카테고리에서 과목 이름 옆 연필을 눌러 바꿀 수 있어요.')}
+    ${sw('toggle-sort-subject', p.sortBySubject, '과목 순서대로 정렬', '하루 칸 안의 할 일을 카테고리의 과목 순서(국어 → 수학 → …)대로 모아서 보여 줘요. 같은 과목 안에서는 직접 끌어서 바꾼 순서를 따라요.')}
     ${sw('toggle-night', night, '나이트모드', '밤 공부용 어두운 화면 · 팝업까지 어두워져요. 끄면 원래 쓰던 캘린더 스타일로 돌아가요.')}
   </div>`;
 }
@@ -1348,6 +1358,7 @@ const actions = {
     st.fontId = p.fontId;
     st.showGoal = p.showGoal;
     st.showAbbr = p.showAbbr;
+    st.sortBySubject = p.sortBySubject;
     applyTheme();
     S.ui.pending = null;
     S.ui.modal = null;
@@ -1491,6 +1502,7 @@ const actions = {
     commit();
   },
   'toggle-abbr': () => { const p = pendingOf(); p.showAbbr = !p.showAbbr; render(); },
+  'toggle-sort-subject': () => { const p = pendingOf(); p.sortBySubject = !p.sortBySubject; render(); },
   'toggle-goal': () => { const p = pendingOf(); p.showGoal = !p.showGoal; render(); },
   'toggle-night': () => {
     if (S.phase !== 'app') {
@@ -1775,8 +1787,22 @@ function bindDrag() {
     if (drag.ghost) drag.ghost.remove();
     if (drag.chip) drag.chip.classList.remove('dragging');
     document.querySelectorAll('.cell.drop').forEach((c) => c.classList.remove('drop'));
+    clearMark();
     document.body.classList.remove('is-dragging');
     drag = null;
+  };
+
+  const clearMark = () => document.querySelectorAll('.chip.drop-before, .chip.drop-after').forEach((c) => c.classList.remove('drop-before', 'drop-after'));
+
+  // 놓을 칸 안에서 몇 번째 자리에 들어갈지 (끌고 있는 칩은 빼고 셈)
+  const placeIn = (target, y) => {
+    clearMark();
+    const chips = target ? [...target.querySelectorAll('.chip')].filter((c) => c !== drag.chip) : [];
+    let index = chips.findIndex((c) => { const r = c.getBoundingClientRect(); return y < r.top + r.height / 2; });
+    if (index < 0) index = chips.length;
+    if (chips.length) chips[Math.min(index, chips.length - 1)].classList.add(index < chips.length ? 'drop-before' : 'drop-after');
+    drag.index = index;
+    drag.others = chips.map((c) => c.dataset.id);
   };
 
   const start = () => {
@@ -1798,13 +1824,14 @@ function bindDrag() {
   const move = (x, y) => {
     drag.ghost.style.transform = `translate(${x - drag.offX}px, ${y - drag.offY}px)`;
     const cell = document.elementFromPoint(x, y);
-    const target = cell && cell.closest('.cell[data-date]');
+    const target = cell && cell.closest('.cell[data-date], .day-panel[data-date]');
     const k = target ? target.dataset.date : null;
     if (k !== drag.over) {
       document.querySelectorAll('.cell.drop').forEach((c) => c.classList.remove('drop'));
-      if (target) target.classList.add('drop');
+      if (target && target.classList.contains('cell')) target.classList.add('drop');
       drag.over = k;
     }
+    placeIn(target, y);
     if (y < 50) window.scrollBy(0, -14);
     else if (y > window.innerHeight - 50) window.scrollBy(0, 14);
   };
@@ -1839,16 +1866,24 @@ function bindDrag() {
       suppressClick = true;
       lastDragEnd = Date.now();
       setTimeout(() => { suppressClick = false; }, 0);
-      const { id, over } = drag;
+      const { id, over, index, others } = drag;
       cleanup();
       const t = byId(S.data.todos, id);
-      if (t && over && over !== t.date) {
-        S.data.todos = S.data.todos.filter((x) => x.id !== id);
+      if (!t || !over) return;
+      const ids = (others || []).slice();
+      ids.splice(index || 0, 0, id);
+      const before = (todosByDay()[over] || []).map((x) => x.id).join();
+      if (over === t.date && ids.join() === before) return; // 제자리에 놓음
+      // 칸이 접혀 칩이 안 보이면(폰 달력) 맨 뒤에 붙임
+      if (!others || (!others.length && over !== t.date && (todosByDay()[over] || []).length)) {
         t.date = over;
         t.order = Date.now();
-        S.data.todos.push(t);
-        commit();
+      } else {
+        t.date = over;
+        const stamp = Date.now();
+        ids.forEach((x, i) => { const item = byId(S.data.todos, x); if (item) item.order = stamp + i; });
       }
+      commit();
       return;
     }
     cleanup();
