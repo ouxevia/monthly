@@ -101,6 +101,24 @@ const findTheme = (id) => allThemes().find((t) => t.id === id) || null;
 const curTheme = () => findTheme(settings().themeId) || findTheme('rb-pastel') || THEMES[0];
 // 색 개수가 테마마다 달라서 순번은 항상 나머지로 맞춤
 const tc = (th, i) => th.c[((i % th.c.length) + th.c.length) % th.c.length];
+// 주간 체크 모드: 미완료는 회색, 완료는 "체크한 날"이 속한 주의 색
+// (지난주 할 일을 이번 주에 끝내면 이번 주 색)
+const WEEK_GRAY = '#E4E2DE';
+const weekMode = () => settings().colorMode === 'week';
+const weekNo = (k) => Math.floor((dayNum(k) + 4) / 7); // 일요일에 시작하는 주 번호 (1970-01-01은 목요일)
+function weekColor(k) {
+  const th = curTheme();
+  const step = th.c.length % 3 === 0 ? 1 : 3; // 이웃한 주끼리 비슷한 색이 안 나오게 건너뛰며 배정
+  return tc(th, weekNo(k) * step);
+}
+// 칩 배경색: 과목 색(기본) 또는 주간 색
+function chipBg(t) {
+  if (weekMode()) return t.done ? weekColor(t.doneOn || t.date)[2] : WEEK_GRAY;
+  const col = colorOf(t.subjectId);
+  return t.done ? col[2] : col[1];
+}
+const shortDate = (k) => Number(k.slice(5, 7)) + '/' + Number(k.slice(8));
+
 // 날짜별 할 일 목록: 직접 정한 순서(order)대로, 과목순 정렬을 켜면 과목 순서가 먼저
 function todosByDay() {
   const map = {};
@@ -520,7 +538,7 @@ function viewCalendar() {
       const numCls = c === 0 || hol ? ' sun' : c === 6 ? ' sat' : '';
       if (compact) {
         const list = todosByDate[k] || [];
-        const bars = list.slice(0, 4).map((t) => { const col = colorOf(t.subjectId); return `<i style="background:${t.done ? col[2] : col[1]}"></i>`; }).join('');
+        const bars = list.slice(0, 4).map((t) => `<i style="background:${chipBg(t)}"></i>`).join('');
         html += `<button class="cell cell-compact${k === today ? ' today' : ''}${k === sel ? ' sel' : ''}" data-date="${k}" data-act="sel-date" role="gridcell" aria-label="${m}월 ${d}일${hol ? ' ' + esc(hol) : ''}, 할 일 ${list.length}개" aria-pressed="${k === sel}">
           <span class="num${numCls}">${d}</span>
           ${ex ? `<span class="dday${dd === 0 ? ' on' : ''}">${dd === 0 ? 'D-day' : 'D-' + dd}</span>` : ''}
@@ -597,12 +615,12 @@ function fitCalendar() {
 }
 
 function viewChip(t) {
-  const col = colorOf(t.subjectId);
   const book = byId(S.data.books, t.bookId);
   const subject = byId(S.data.subjects, t.subjectId);
   const label = [subject ? subject.name : '', book ? book.name : '', t.text].filter(Boolean).join(' · ');
-  const bg = t.done ? col[2] : col[1];
-  return `<div class="chip${t.done ? ' done' : ''}" data-id="${t.id}" style="background:${bg};color:${inkOn(bg)}" title="${esc(label)}">
+  const bg = chipBg(t);
+  const tip = label + (t.done && t.doneOn ? ` · ${shortDate(t.doneOn)} 완료` : '');
+  return `<div class="chip${t.done ? ' done' : ''}" data-id="${t.id}" style="background:${bg};color:${inkOn(bg)}" title="${esc(tip)}">
     <button class="chip-check" data-act="toggle-done" data-id="${t.id}" aria-label="${esc(label)} ${t.done ? '완료 취소' : '완료로 표시'}" aria-pressed="${t.done}">${t.done ? ICON.check : ''}</button>
     <button class="chip-text" data-act="open-todo" data-id="${t.id}">${subject && settings().showAbbr !== false ? `<span class="abbr">(${esc(abbrOf(subject))})</span> ` : ''}${book ? `<b>${esc(book.name)}</b> ` : ''}${esc(t.text || (subject ? subject.name : ''))}</button>
   </div>`;
@@ -651,11 +669,11 @@ function viewPrintSheet() {
       const over = list.length > maxLines;
       const shown = over ? list.slice(0, maxLines - 1) : list;
       const chips = shown.map((t) => {
-        const col = colorOf(t.subjectId);
         const book = byId(S.data.books, t.bookId);
         const subject = byId(S.data.subjects, t.subjectId);
         const ab = subject && settings().showAbbr !== false ? `(${esc(abbrOf(subject))}) ` : '';
-        const look = mono ? 'background:transparent;color:#1F1F1F' : `background:${t.done ? col[2] : col[1]};color:${inkOn(t.done ? col[2] : col[1])}`;
+        const bg = chipBg(t);
+        const look = mono ? 'background:transparent;color:#1F1F1F' : `background:${bg};color:${inkOn(bg)}`;
         return `<div class="ps-chip${mono ? ' mono' : ''}" style="${look}"><span class="ps-check">${t.done ? '✓' : '○'}</span>${ab}${book ? `<b>${esc(book.name)}</b> ` : ''}${esc(t.text || (subject ? subject.name : ''))}</div>`;
       }).join('') + (over ? `<div class="ps-more">+${list.length - shown.length}개 더</div>` : '');
       grid += `<div class="ps-cell" style="height:${rowH}px">
@@ -671,7 +689,7 @@ function viewPrintSheet() {
   }
 
   const monthExams = exams.filter((e) => e.date.startsWith(`${y}-${pad(m)}`));
-  const legend = S.data.subjects.map((s) => {
+  const legend = !mono && weekMode() ? monthWeeks(y, m).map((k) => `<span class="ps-lg"><i style="background:${weekColor(k)[2]}"></i>${shortDate(k)}~ 주</span>`).join('') : S.data.subjects.map((s) => {
     if (mono) return `<span class="ps-lg">(${esc(abbrOf(s))}) ${esc(s.name)}</span>`;
     const c = colorOf(s.id);
     return `<span class="ps-lg"><i style="background:${c[1]}"></i><i style="background:${c[2]}"></i>${esc(s.name)}</span>`;
@@ -734,7 +752,27 @@ async function makeExportImage() {
   if (S.ui.modal === 'settings' && S.ui.setTab === 'export' && S.ui.export === job) render();
 }
 
+// 이번 달 캘린더에 보이는 주들의 일요일 날짜
+function monthWeeks(y, m) {
+  const first = new Date(y, m - 1, 1);
+  const days = new Date(y, m, 0).getDate();
+  const out = [];
+  for (let d = 1 - first.getDay(); d <= days; d += 7) {
+    const t = new Date(y, m - 1, d);
+    out.push(keyOf(t.getFullYear(), t.getMonth() + 1, t.getDate()));
+  }
+  return out;
+}
+
 function viewLegend() {
+  if (weekMode()) {
+    const { year: y, month: m } = S.ui;
+    const items = monthWeeks(y, m).map((k) => `<span class="lg"><span class="sw" style="background:${weekColor(k)[2]}"></span>${shortDate(k)}~</span>`).join('');
+    return `<footer class="legend">
+    <span class="sub-text">완료한 주</span>${items}<span class="lg"><span class="sw" style="background:${WEEK_GRAY}"></span>미완료</span>
+    <span class="sub-text legend-help">주간 체크 모드 · 체크한 날이 속한 주의 색으로 칠해져요 (지난주 할 일을 이번 주에 하면 이번 주 색) · 칩 드래그 = 날짜 이동 · 순서 바꾸기</span>
+  </footer>`;
+  }
   const items = S.data.subjects.map((s) => {
     const c = colorOf(s.id);
     return `<span class="lg"><span class="sw" style="background:${c[1]}"></span><span class="sw" style="background:${c[2]}"></span>${esc(s.name)}</span>`;
@@ -805,7 +843,7 @@ function viewTodoModal() {
       </div>
       <div class="preview-row">
         <span class="field-label">미리보기</span>
-        <span class="preview-chip" style="background:${dr.done ? col[2] : col[1]};color:${inkOn(dr.done ? col[2] : col[1])}"><b>${esc(book ? book.name : '')}</b> <span data-preview-text>${esc(dr.text || (dr.subjectId ? '' : '과목을 선택하세요'))}</span></span>
+        <span class="preview-chip" style="background:${chipBg(dr)};color:${inkOn(chipBg(dr))}"><b>${esc(book ? book.name : '')}</b> <span data-preview-text>${esc(dr.text || (dr.subjectId ? '' : '과목을 선택하세요'))}</span></span>
         <span class="sp"></span>
         <button class="btn btn-sm" data-act="toggle-draft-done">${dr.done ? '완료 취소' : '완료로 표시'}</button>
       </div>
@@ -836,7 +874,7 @@ const PENDING_TABS = ['style', 'color', 'font', 'display'];
 function pendingOf() {
   if (!S.ui.pending) {
     const st = settings();
-    S.ui.pending = { styleId: st.styleId, prevStyle: st.prevStyle, themeId: st.themeId, fontId: st.fontId, showGoal: st.showGoal !== false, showAbbr: st.showAbbr !== false, sortBySubject: st.sortBySubject === true };
+    S.ui.pending = { styleId: st.styleId, prevStyle: st.prevStyle, themeId: st.themeId, fontId: st.fontId, showGoal: st.showGoal !== false, showAbbr: st.showAbbr !== false, sortBySubject: st.sortBySubject === true, colorMode: st.colorMode === 'week' ? 'week' : 'subject' };
   }
   return S.ui.pending;
 }
@@ -845,7 +883,7 @@ function pendingChanged() {
   const p = S.ui.pending;
   if (!p) return false;
   const st = settings();
-  return p.styleId !== st.styleId || p.themeId !== st.themeId || p.fontId !== st.fontId || p.showGoal !== (st.showGoal !== false) || p.showAbbr !== (st.showAbbr !== false) || p.sortBySubject !== (st.sortBySubject === true);
+  return p.styleId !== st.styleId || p.themeId !== st.themeId || p.fontId !== st.fontId || p.showGoal !== (st.showGoal !== false) || p.showAbbr !== (st.showAbbr !== false) || p.sortBySubject !== (st.sortBySubject === true) || p.colorMode !== (st.colorMode === 'week' ? 'week' : 'subject');
 }
 
 function pickMark(isPending, isCurrent) {
@@ -1075,6 +1113,7 @@ function displayBody() {
   return `<div class="switch-list">
     ${sw('toggle-goal', p.showGoal, 'GOAL (이번 달 목표) 표시', '끄면 캘린더 위의 GOAL 칸과 인쇄용 A4에서 목표가 숨겨져요. 적어 둔 목표는 지워지지 않아요.')}
     ${sw('toggle-abbr', p.showAbbr, '과목 약자 표시', '할 일 앞에 (수) (영)처럼 과목 첫 글자를 붙여요. 약자는 환경설정 → 카테고리에서 과목 이름 옆 연필을 눌러 바꿀 수 있어요.')}
+    ${sw('toggle-week-mode', p.colorMode === 'week', '주간 체크 모드', '할 일은 모두 회색으로, 체크하면 체크한 날이 속한 주의 색으로 칠해져요. 지난주 할 일을 이번 주에 끝내면 이번 주 색이 돼서 언제 했는지 한눈에 보여요. 주마다 색은 지금 고른 과목 색상 테마에서 가져와요.')}
     ${sw('toggle-sort-subject', p.sortBySubject, '과목 순서대로 정렬', '하루 칸 안의 할 일을 카테고리의 과목 순서(국어 → 수학 → …)대로 모아서 보여 줘요. 같은 과목 안에서는 직접 끌어서 바꾼 순서를 따라요.')}
     ${sw('toggle-night', night, '나이트모드', '밤 공부용 어두운 화면 · 팝업까지 어두워져요. 끄면 원래 쓰던 캘린더 스타일로 돌아가요.')}
   </div>`;
@@ -1320,6 +1359,7 @@ const actions = {
     const t = byId(S.data.todos, el.dataset.id);
     if (!t) return;
     t.done = !t.done;
+    if (t.done) t.doneOn = todayKey(); else delete t.doneOn;
     commit();
   },
   'pick-subject': (el) => {
@@ -1332,11 +1372,17 @@ const actions = {
     dr.bookId = dr.bookId === el.dataset.id ? null : el.dataset.id;
     render();
   },
-  'toggle-draft-done': () => { S.ui.draft.done = !S.ui.draft.done; render(); },
+  'toggle-draft-done': () => {
+    const dr = S.ui.draft;
+    dr.done = !dr.done;
+    if (dr.done) dr.doneOn = todayKey(); else delete dr.doneOn;
+    render();
+  },
   'save-todo': () => {
     const dr = S.ui.draft;
     if (!dr || !dr.subjectId) return;
     const clean = { id: dr.id || newId('t'), date: dr.date, subjectId: dr.subjectId, bookId: dr.bookId || null, text: (dr.text || '').trim(), done: !!dr.done, order: dr.order || Date.now() };
+    if (clean.done) clean.doneOn = dr.doneOn || todayKey();
     const i = S.data.todos.findIndex((t) => t.id === clean.id);
     if (i >= 0) {
       const moved = S.data.todos[i].date !== clean.date;
@@ -1371,6 +1417,7 @@ const actions = {
     st.showGoal = p.showGoal;
     st.showAbbr = p.showAbbr;
     st.sortBySubject = p.sortBySubject;
+    st.colorMode = p.colorMode;
     applyTheme();
     S.ui.pending = null;
     S.ui.modal = null;
@@ -1529,6 +1576,7 @@ const actions = {
     commit();
   },
   'toggle-abbr': () => { const p = pendingOf(); p.showAbbr = !p.showAbbr; render(); },
+  'toggle-week-mode': () => { const p = pendingOf(); p.colorMode = p.colorMode === 'week' ? 'subject' : 'week'; render(); },
   'toggle-sort-subject': () => { const p = pendingOf(); p.sortBySubject = !p.sortBySubject; render(); },
   'toggle-goal': () => { const p = pendingOf(); p.showGoal = !p.showGoal; render(); },
   'toggle-night': () => {
