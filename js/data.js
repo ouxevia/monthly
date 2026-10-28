@@ -197,15 +197,16 @@ export const STYLES = [
 ];
 
 // 글씨체: scale = 글자 크기 보정 (손글씨 글꼴은 작아 보여서 키움)
+// nudge: 할 일 칸 안에서 글자가 위아래 가운데에 오도록 내리는(+) / 올리는(-) 양 (em, 글씨체마다 실측)
 export const FONTS = [
-  { id: 'myeongjo', name: '나눔명조', desc: '기본 · 단정한 명조체', family: "'Nanum Myeongjo', serif", scale: 1, chip: 11.5 },
-  { id: 'batang', name: '고운바탕', desc: '부드러운 명조체', family: "'Gowun Batang', serif", scale: 1, chip: 11.5 },
-  { id: 'dodum', name: '고운돋움', desc: '깔끔한 고딕체', family: "'Gowun Dodum', sans-serif", scale: 1, chip: 11.5 },
+  { id: 'myeongjo', name: '나눔명조', desc: '기본 · 단정한 명조체', family: "'Nanum Myeongjo', serif", scale: 1, chip: 11.5, nudge: 0.098 },
+  { id: 'batang', name: '고운바탕', desc: '부드러운 명조체', family: "'Gowun Batang', serif", scale: 1, chip: 11.5, nudge: -0.054 },
+  { id: 'dodum', name: '고운돋움', desc: '깔끔한 고딕체', family: "'Gowun Dodum', sans-serif", scale: 1, chip: 11.5, nudge: -0.043 },
   { id: 'gaegu', name: '개구', desc: '동글동글 손글씨', family: "'Gaegu', cursive", scale: 1.15, chip: 12.5 },
-  { id: 'pen', name: '나눔펜', desc: '다이어리 펜 손글씨', family: "'Nanum Pen Script', cursive", scale: 1.3, chip: 14 },
+  { id: 'pen', name: '나눔펜', desc: '다이어리 펜 손글씨', family: "'Nanum Pen Script', cursive", scale: 1.3, chip: 14, nudge: 0.045 },
   // 그리운 묘은체 (www.griun.co.kr): 원본 파일 그대로 fonts/ 에 둠 (파일 수정 금지 조건)
-  { id: 'myoeun-heullim', name: '그리운 묘은 흘림', desc: '흐르듯 이어 쓴 손글씨', family: "'Griun Myoeun Heullim', cursive", scale: 1.05, chip: 12 },
-  { id: 'myoeun-ddobak', name: '그리운 묘은 또박', desc: '또박또박 정갈한 손글씨', family: "'Griun Myoeun Ddobak', cursive", scale: 1.05, chip: 12 },
+  { id: 'myoeun-heullim', name: '그리운 묘은 흘림', desc: '흐르듯 이어 쓴 손글씨', family: "'Griun Myoeun Heullim', cursive", scale: 1.05, chip: 12, nudge: 0.135 },
+  { id: 'myoeun-ddobak', name: '그리운 묘은 또박', desc: '또박또박 정갈한 손글씨', family: "'Griun Myoeun Ddobak', cursive", scale: 1.05, chip: 12, nudge: 0.135 },
 ];
 
 export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
