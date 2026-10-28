@@ -229,7 +229,9 @@ body.dark .chip.drop-before::before, body.dark .chip.drop-after::after { backgro
 .chip-check::after { content: ''; position: absolute; inset: -4px; } /* 터치 영역 넓히기 */
 .chip-text {
   flex: 1; min-width: 0; border: 0; background: transparent; color: inherit; padding: 0; text-align: left;
-  font-size: var(--chip-fs); line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: inherit;
+  font-size: var(--chip-fs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: inherit;
+  /* 칩 높이만큼 줄 높이를 줘서 글자 위아래가 잘리지 않게 하고, 글씨체마다 다른 치우침을 --text-nudge로 보정 */
+  line-height: var(--chip-h); transform: translateY(var(--text-nudge, 0));
 }
 .drag-ghost { position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22); opacity: 0.95; cursor: grabbing; }
 body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select: none; }
@@ -249,7 +251,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 }
 .modal-wide { width: 860px; }
 .modal-xl { width: 1180px; height: min(860px, calc(100vh - 48px)); }
-.modal-sm { width: 400px; padding: 24px; }
+.modal-sm { width: 400px; padding: 24px; overflow-y: auto; overscroll-behavior: contain; } /* 내용이 길면(기기 목록 등) 창 안에서 스크롤 */
+.device-more { align-self: flex-start; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .modal-head h2 { margin: 0; font-size: calc(21px * var(--k)); font-weight: 400; }
 .modal-scroll { overflow-y: auto; display: flex; flex-direction: column; gap: 18px; min-height: 0; flex: 1 1 auto; padding: 2px; }
@@ -434,7 +437,7 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
   display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 10px;
   border: 0; background: transparent; color: var(--card-ink); font-size: calc(15px * var(--k)); text-align: left;
 }
-.set-tab:hover { background: var(--soft); }
+@media (hover: hover) { .set-tab:hover { background: var(--soft); } } /* 터치 화면에선 누른 뒤 색이 남지 않게 */
 .set-tab.on { background: var(--soft); font-weight: 700; }
 .set-tab svg { flex: none; color: var(--label); }
 .set-body { flex: 1; min-width: 0; }
@@ -582,3 +585,83 @@ body.dark .notice-ok { color: #8FD6A8; }
 /* 로그인 화면: 기기 저장 모드 */
 .login-or { display: flex; align-items: center; gap: 10px; color: var(--hint); font-size: 12px; }
 .login-or span { flex: 1; height: 1px; background: var(--mline); }
+
+/* ---------- 폰 세로: 환경설정 · 계정 창을 작고 촘촘하게 ---------- */
+/* 사파리 주소창 높이를 뺀 실제 보이는 높이(dvh) 기준 */
+.modal { max-height: calc(100dvh - 48px); }
+.modal-xl, .settings-modal { height: min(860px, calc(100dvh - 48px)); }
+@media (max-width: 900px) { .settings-modal { height: calc(100dvh - 32px); } }
+
+@media (max-width: 560px) {
+  .overlay { padding: 10px; }
+  .overlay-top { padding: 10px; }
+  .modal { padding: 14px 14px 12px; gap: 12px; border-radius: 16px; max-height: calc(100dvh - 20px); }
+  .settings-modal { height: calc(100dvh - 20px); }
+  .modal-head h2 { font-size: calc(18px * var(--k)); }
+  .modal .btn { min-height: 38px; padding: 0 14px; font-size: calc(14px * var(--k)); }
+  .modal .btn-sm { min-height: 30px; padding: 0 10px; font-size: calc(12px * var(--k)); }
+  .hint { font-size: calc(13px * var(--k)); }
+  .hint.small, .small { font-size: calc(11px * var(--k)); }
+  .field { min-height: 38px; font-size: 16px; padding: 7px 10px; } /* 16px 미만이면 아이폰이 입력할 때 화면을 확대함 */
+  .field-label { font-size: calc(12px * var(--k)); }
+  .notice { font-size: calc(13px * var(--k)); padding: 10px 12px; }
+
+  /* 탭: 한 줄로 옆으로 밀어서 고르기 */
+  .set-layout { gap: 12px; }
+  .set-nav { flex-wrap: nowrap; overflow-x: auto; gap: 4px; margin: 0 -14px; padding: 0 14px 2px; scrollbar-width: none; }
+  .set-nav::-webkit-scrollbar { display: none; }
+  .set-tab { flex: none; min-height: 32px; padding: 0 10px; gap: 6px; border-radius: 16px; font-size: calc(12.5px * var(--k)); white-space: nowrap; border: 1px solid var(--mline); }
+  .set-tab.on { border-color: transparent; }
+  .set-tab svg { width: 15px; height: 15px; }
+  .settings-modal .modal-foot { gap: 8px; }
+  .settings-modal .modal-foot .hint { font-size: calc(11px * var(--k)); }
+
+  /* 시험일 */
+  .exam-row { gap: 10px; padding: 6px 6px 6px 12px; }
+  .exam-dday { font-size: calc(16px * var(--k)); min-width: 54px; }
+  .exam-add { padding-top: 12px; }
+  .exam-add .field-group.grow { flex-basis: 100%; }
+  .exam-add .field-group:not(.grow) { flex: 1; }
+  .exam-add .field[type="date"] { width: 100%; }
+
+  /* 카테고리 */
+  .cat-grid { gap: 12px; }
+  .cat-panel { padding: 10px; gap: 8px; }
+  .cat-panel h3 { font-size: calc(14px * var(--k)); }
+  .cat-list { height: auto; max-height: 38dvh; gap: 2px; }
+  .list-row { gap: 0; padding: 0 2px; }
+  .list-main { gap: 6px; min-height: 36px; font-size: calc(14px * var(--k)); padding: 0 2px; }
+  .list-main .hint.small { white-space: nowrap; }
+  .icon-btn.sm { width: 28px; height: 28px; }
+  .icon-btn.sm svg { width: 14px; height: 14px; }
+  .color-sw { width: 22px; height: 22px; }
+
+  /* 고르는 카드 (스타일 · 색상 · 글씨체) */
+  .pick-grid { gap: 8px; }
+  .pick-grid.cols-3, .pick-grid.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pick-card { padding: 8px; gap: 6px; border-radius: 12px; }
+  .pick-name { font-size: calc(14px * var(--k)); gap: 4px; }
+  .pick-name small { font-size: calc(10.5px * var(--k)); }
+  .pick-group { font-size: calc(15px * var(--k)); margin: 6px 0 0; }
+  .pal-pick { padding: 8px; gap: 6px; }
+  .pal-tools { padding: 0 8px 8px; }
+  .pal-tools .btn { min-height: 26px; max-width: 100%; font-size: calc(10.5px * var(--k)); padding: 3px 6px; white-space: normal; line-height: 1.25; text-align: left; }
+  .pal-new { min-height: 90px; }
+  .font-card { padding: 10px 12px; gap: 6px; zoom: 0.78; } /* 미리보기 글자 크기가 글씨체마다 따로 정해져 있어서 카드째 줄임 */
+  .style-preview { height: 150px; padding: 8px; gap: 4px; }
+  .style-preview .sp-title { font-size: calc(11px * var(--k)); gap: 6px; white-space: nowrap; }
+  .mini-cell { height: 34px; padding: 1px 2px; font-size: calc(8.5px * var(--k)); gap: 1px; }
+  .mini-cell i { height: 5px; border-radius: 2px; }
+
+  /* 화면 표시 스위치 */
+  .switch-list { gap: 8px; }
+  .switch-row { gap: 10px; padding: 10px 12px; border-radius: 12px; }
+  .switch-text { font-size: calc(14px * var(--k)); gap: 2px; }
+  .switch { width: 40px; height: 24px; }
+  .switch i { width: 18px; height: 18px; }
+  .switch.on i { left: 19px; }
+
+  /* 계정 창 */
+  .modal-sm { padding: 16px; }
+  .device-row { font-size: calc(13px * var(--k)); padding: 8px 10px; }
+}

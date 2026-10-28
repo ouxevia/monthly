@@ -151,7 +151,7 @@ function applyTheme() {
   set('--cell-bg', st.cellBg); set('--head-bg', st.headBg); set('--radius', st.radius + 'px');
   set('--sun', st.sun); set('--sat', st.sat); set('--circle', st.circle);
   set('--today-bg', st.todayBg); set('--today-badge', st.todayBadge); set('--today-fg', st.todayFg);
-  set('--font', f.family); set('--k', f.scale); set('--chip-fs', f.chip + 'px');
+  set('--font', f.family); set('--k', f.scale); set('--chip-fs', f.chip + 'px'); set('--text-nudge', (f.nudge || 0) + 'em');
   set('--accent-light', tc(th, 0)[1]); set('--accent-deep', tc(th, 0)[2]); set('--month-on', tc(th, 3)[1]); set('--month-on-ink', inkOn(tc(th, 3)[1]));
   set('--drop', tc(th, 3)[1]);
   document.body.className = 'st-' + st.id + (st.dark ? ' dark' : '');
@@ -373,6 +373,8 @@ function render() {
   const calScrollX = calScroll ? calScroll.scrollLeft : 0;
   const modalBody = document.querySelector('.modal-scroll');
   const modalScrollY = modalBody ? modalBody.scrollTop : 0;
+  const setNav = document.querySelector('.set-nav');
+  const setNavX = setNav ? setNav.scrollLeft : 0;
   const cellScroll = {};
   document.querySelectorAll('.cell[data-date] .todos').forEach((el) => { if (el.scrollTop) cellScroll[el.parentElement.dataset.date] = el.scrollTop; });
 
@@ -387,11 +389,22 @@ function render() {
   if (cs) cs.scrollLeft = calScrollX;
   const mb = document.querySelector('.modal-scroll');
   if (mb) mb.scrollTop = modalScrollY;
+  keepTabVisible(setNavX);
   fitCalendar();
   Object.keys(cellScroll).forEach((k) => {
     const el = document.querySelector(`.cell[data-date="${k}"] .todos`);
     if (el) el.scrollTop = cellScroll[k];
   });
+}
+
+// 폰에서 환경설정 탭이 한 줄로 옆으로 밀릴 때: 보던 위치를 지키고, 고른 탭이 가려졌으면 보이게
+function keepTabVisible(prevX) {
+  const nav = document.querySelector('.set-nav');
+  const on = nav && nav.querySelector('.set-tab.on');
+  if (!nav || !on || nav.scrollWidth <= nav.clientWidth) return;
+  nav.scrollLeft = prevX;
+  const l = on.offsetLeft - nav.offsetLeft, r = l + on.offsetWidth;
+  if (l < nav.scrollLeft || r > nav.scrollLeft + nav.clientWidth) nav.scrollLeft = l - (nav.clientWidth - on.offsetWidth) / 2;
 }
 
 // 다른 기기에서 변경이 들어왔을 때: 입력 중이면 끝날 때까지 기다렸다가 다시 그림
@@ -1190,8 +1203,13 @@ function exportBody() {
 
 function viewAccountModal() {
   const user = S.user;
-  const devices = Object.entries(S.data.devices || {}).sort((a, b) => (b[1].lastSeen || 0) - (a[1].lastSeen || 0)).map(([id, d]) =>
-    `<div class="device-row"><span>${id === deviceId() ? '이 기기 · ' : ''}${esc(d.name)}</span><span class="hint small">${id === deviceId() ? '지금 사용 중' : relTime(d.lastSeen)}</span></div>`).join('');
+  // 로그인된 기기: 최근 5개만 보이고 나머지는 더보기로
+  const DEVICE_LIMIT = 5;
+  const allDevices = Object.entries(S.data.devices || {}).sort((a, b) => (b[1].lastSeen || 0) - (a[1].lastSeen || 0));
+  const shownDevices = S.ui.allDevices ? allDevices : allDevices.slice(0, DEVICE_LIMIT);
+  const devices = shownDevices.map(([id, d]) =>
+    `<div class="device-row"><span>${id === deviceId() ? '이 기기 · ' : ''}${esc(d.name)}</span><span class="hint small">${id === deviceId() ? '지금 사용 중' : relTime(d.lastSeen)}</span></div>`).join('')
+    + (allDevices.length > DEVICE_LIMIT ? `<button class="link-btn device-more" data-act="toggle-devices">${S.ui.allDevices ? '접기' : `더보기 (${allDevices.length - DEVICE_LIMIT}개)`}</button>` : '');
   const cloud = S.mode === 'cloud' && user;
   return `<div class="modal modal-sm" role="dialog" aria-modal="true" aria-label="계정">
     <div class="account-head">
@@ -1272,6 +1290,7 @@ const actions = {
       : '가입하지 못했어요. (' + (err.message || err) + ')');
   },
   reload: () => location.reload(),
+  'toggle-devices': () => { S.ui.allDevices = !S.ui.allDevices; render(); },
   'go-login': () => {
     S.offline = false;
     try { localStorage.removeItem(OFFLINE_KEY); } catch (e) { /* 무시 */ }
