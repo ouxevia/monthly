@@ -94,3 +94,31 @@ create policy "read own feedback" on public.feedback
 
 grant insert on public.feedback to anon, authenticated;
 grant select on public.feedback to authenticated;
+
+-- 6) 내 글씨체: 폰트 파일 저장소 (환경설정 → 글씨체 → 내 글씨체 올리기)
+--    'fonts' 버킷의 <내 계정 id>/ 폴더에만 올리고 읽을 수 있음 (다른 사용자에게는 안 보임).
+--    파일 하나 최대 20MB.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('fonts', 'fonts', false, 20971520, array['font/ttf', 'font/otf', 'font/woff', 'font/woff2', 'application/octet-stream'])
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "own fonts read" on storage.objects;
+create policy "own fonts read" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'fonts' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "own fonts insert" on storage.objects;
+create policy "own fonts insert" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'fonts' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "own fonts update" on storage.objects;
+create policy "own fonts update" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'fonts' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'fonts' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "own fonts delete" on storage.objects;
+create policy "own fonts delete" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'fonts' and (storage.foldername(name))[1] = auth.uid()::text);

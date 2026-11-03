@@ -3,11 +3,6 @@
    색 · 선 · 글씨체 값은 js/app.js의 applyTheme()가 CSS 변수로 넣어줍니다.
    ============================================================ */
 
-/* 그리운 묘은체 · 햄이체: 글씨체로 고를 때만 내려받음 (파일이 커서 swap으로 먼저 다른 글씨로 보여 줌) */
-@font-face { font-family: 'Griun Myoeun Heullim'; src: url('../fonts/Griun_MyoeunHeullim-Rg.ttf') format('truetype'); font-display: swap; }
-@font-face { font-family: 'Griun Myoeun Ddobak'; src: url('../fonts/Griun_Myoeunddobak-Rg.ttf') format('truetype'); font-display: swap; }
-@font-face { font-family: 'Griun Haemi'; src: url('../fonts/Study_ham2-Rg.ttf') format('truetype'); font-display: swap; }
-
 :root {
   --ink: #2F2B27;
   --sub: #6F6A62;
@@ -710,3 +705,15 @@ body.dark .notice-ok { color: #8FD6A8; }
   .month-nav .year-text { min-width: 42px; font-size: calc(19px * var(--k)); }
   .today-link { font-size: 12px; padding: 0 2px; }
 }
+
+/* ---------- 내 글씨체 ---------- */
+.user-font { gap: 10px; }
+.font-pick {
+  display: flex; flex-direction: column; gap: 12px; width: 100%; padding: 0; border: 0; background: transparent;
+  color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.user-font .pal-tools { padding: 0; }
+.font-new { min-height: 150px; }
+.font-new.busy { cursor: progress; }
+.font-new.off { cursor: default; opacity: 0.7; }
+@media (max-width: 560px) { .font-pick { gap: 6px; } .font-new { min-height: 90px; } }

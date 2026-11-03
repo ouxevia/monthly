@@ -116,6 +116,23 @@ export async function initCloud(config, { onUser, onRemote, onError, onRecovery 
       if (error) throw error;
       return data || [];
     },
+    // 내 글씨체 파일: fonts 버킷의 <내 계정 id>/<파일> (supabase.sql 6번 규칙으로 본인만 접근)
+    async uploadFont(file, name, type) {
+      if (!uid) throw new Error('로그인이 필요해요');
+      const path = uid + '/' + name;
+      const { error } = await sb.storage.from('fonts').upload(path, file, { contentType: type, upsert: true, cacheControl: '31536000' });
+      if (error) throw error;
+      return path;
+    },
+    async downloadFont(path) {
+      const { data, error } = await sb.storage.from('fonts').download(path);
+      if (error) throw error;
+      return data.arrayBuffer();
+    },
+    async deleteFont(path) {
+      const { error } = await sb.storage.from('fonts').remove([path]);
+      if (error) throw error;
+    },
     async signOut() {
       await sb.auth.signOut();
     },
