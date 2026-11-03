@@ -8,7 +8,7 @@ const LS_PREFIX = 'exam-monthly:v1:';
 const DEVICE_KEY = 'exam-monthly:device-id';
 
 export function defaultData() {
-  const subjects = ['국어', '수학', '영어', '과학', '사회'].map((name, i) => ({ id: newId('s'), name, color: i, order: i }));
+  const subjects = ['공부', '업무', '운동', '약속', '개인'].map((name, i) => ({ id: newId('s'), name, color: i, order: i }));
   return {
     version: 1,
     titles: {},

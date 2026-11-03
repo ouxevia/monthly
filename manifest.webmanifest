@@ -1,7 +1,7 @@
 {
-  "name": "Exam Monthly",
-  "short_name": "Exam Monthly",
-  "description": "시험 계획을 정리하는 먼슬리 플래너",
+  "name": "My Month",
+  "short_name": "My Month",
+  "description": "할 일과 일정을 정리하는 먼슬리 플래너",
   "lang": "ko",
   "start_url": "./",
   "scope": "./",
