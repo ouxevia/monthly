@@ -207,6 +207,8 @@ export const FONTS = [
   // 그리운 묘은체 (www.griun.co.kr): 원본 파일 그대로 fonts/ 에 둠 (파일 수정 금지 조건)
   { id: 'myoeun-heullim', name: '그리운 묘은 흘림', desc: '흐르듯 이어 쓴 손글씨', family: "'Griun Myoeun Heullim', cursive", scale: 1.05, chip: 12, nudge: 0.135 },
   { id: 'myoeun-ddobak', name: '그리운 묘은 또박', desc: '또박또박 정갈한 손글씨', family: "'Griun Myoeun Ddobak', cursive", scale: 1.05, chip: 12, nudge: 0.135 },
+  // 그리운 햄이체 (파일 이름 Study_ham2, 원본 그대로 fonts/ 에 둠 · 파일 수정 금지 조건)
+  { id: 'haemi', name: '그리운 햄이', desc: '또렷하고 동글한 손글씨', family: "'Griun Haemi', cursive", scale: 0.92, chip: 11, nudge: 0.045 },
 ];
 
 export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];

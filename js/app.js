@@ -20,6 +20,12 @@ const S = {
   base: null, // 서버에 마지막으로 반영된 상태 (toRemote 형식)
   creating: false,
   pendingRender: false,
+  netDown: false, // 인터넷이 끊겨서 서버에 못 붙은 상태 (이 기기에 저장된 마지막 버전으로 보여 줌)
+  conflict: null, // 오프라인에서 바꾼 내용 / 기기 저장 모드 내용과 서버 내용 중 고르기
+  restore: null, // 덮어쓰기 뒤 5분 동안 되돌리기 { before, after, cur, until }
+  undo: [], // 실행 취소 기록 [{ prev, fwd, inv, keys, t }]
+  redo: [],
+  lastRemote: null, // 마지막으로 기록한 데이터 (toRemote 형식, 실행 취소 비교용)
   ui: {
     year: now.getFullYear(),
     month: now.getMonth() + 1,
@@ -32,6 +38,12 @@ const S = {
 };
 const LOCAL_STARTED_KEY = 'exam-monthly:local-started';
 const OFFLINE_KEY = 'exam-monthly:offline'; // 서버는 있지만 로그인 없이 쓰기로 고른 기기
+const LAST_UID_KEY = 'exam-monthly:last-uid'; // 마지막으로 로그인했던 계정 (오프라인으로 열 때 그 사본을 보여 줌)
+const DIRTY_PREFIX = 'exam-monthly:dirty:'; // 서버에 못 보낸 채로 이 기기에서 바꾼 내용이 있음
+const RESTORE_PREFIX = 'exam-monthly:restore:';
+const LOCAL_HANDLED_KEY = 'exam-monthly:local-handled'; // 기기 저장 모드 데이터를 계정에 반영할지 이미 물어봤음 (그때의 updatedAt)
+const RESTORE_MS = 5 * 60 * 1000;
+const HISTORY_MAX = 60;
 // 폰처럼 좁은 화면: 칸에는 색 막대만, 날짜를 누르면 아래에 그날 할 일 목록
 const COMPACT_MQ = window.matchMedia('(max-width: 700px)');
 const isCompact = () => COMPACT_MQ.matches;
@@ -79,6 +91,8 @@ const ICON = {
   eye: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
   mail: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
   refresh: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 10-2.3 5.7"/><path d="M20 4v7h-7"/></svg>',
+  undo: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/></svg>',
+  redo: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 000 11H13"/></svg>',
   moon: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>',
 };
 
@@ -172,11 +186,86 @@ function loadBase(scope) {
   try { const t = localStorage.getItem(BASE_PREFIX + scope); return t ? JSON.parse(t) : null; } catch (e) { return null; }
 }
 
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* 무시 */ } },
+  del(k) { try { localStorage.removeItem(k); } catch (e) { /* 무시 */ } },
+};
+const isOffline = () => S.netDown || !navigator.onLine;
+const markDirty = () => { if (S.scope !== 'local') store.set(DIRTY_PREFIX + S.scope, '1'); };
+const clearDirty = () => store.del(DIRTY_PREFIX + S.scope);
+const isDirty = () => store.get(DIRTY_PREFIX + S.scope) === '1';
+const hasContent = (d) => !!d && (d.todos.length > 0 || d.exams.length > 0 || d.books.length > 0 || Object.values(d.titles || {}).some(Boolean));
+
+// 데이터를 통째로 바꾼 뒤(로그인 · 서버에서 받음 · 되돌리기)에는 실행 취소 비교 기준도 새로
+function syncSnap() { S.lastRemote = toRemote(S.data); }
+function resetHistory() { S.undo = []; S.redo = []; syncSnap(); }
+
+// 바뀐 칸만 기록: 되돌릴 때 다른 기기에서 바뀐 내용은 건드리지 않음
+function recordHistory(prev, cur) {
+  const fwd = diffRemote(prev, cur);
+  if (!fwd.length) return;
+  const keys = fwd.map((o) => o.path.join('/')).sort().join('|');
+  const last = S.undo[S.undo.length - 1];
+  const t = Date.now();
+  if (last && last.keys === keys && t - last.t < 1500) {
+    // 같은 칸을 이어서 고치는 중(목표 입력 등)이면 한 번으로 묶음
+    last.fwd = diffRemote(last.prev, cur);
+    last.inv = diffRemote(cur, last.prev);
+    last.t = t;
+  } else {
+    S.undo.push({ prev, fwd, inv: diffRemote(cur, prev), keys, t });
+    if (S.undo.length > HISTORY_MAX) S.undo.shift();
+  }
+  S.redo = [];
+}
+
 function commit(opts) {
+  const o = opts || {};
+  const cur = toRemote(S.data);
+  if (!o.noHistory && S.lastRemote) recordHistory(S.lastRemote, cur);
+  S.lastRemote = cur;
   S.data.updatedAt = Date.now();
   saveLocal(S.scope, S.data);
+  if (S.scope !== 'local' && (!S.user || isOffline())) markDirty(); // 보내다 실패한 경우는 flushCloudSave에서 표시
   if (S.mode === 'cloud' && S.user && S.cloud) scheduleCloudSave();
-  if (!opts || opts.render !== false) render();
+  if (o.render !== false) render();
+}
+
+// 실행 취소 · 다시 실행
+function stepHistory(from, to, key, msg) {
+  const e = from.pop();
+  if (!e) return;
+  const devices = S.data.devices;
+  S.data = fromRemote(applyOps(toRemote(S.data), e[key]));
+  S.data.devices = devices;
+  to.push(e);
+  S.lastRemote = toRemote(S.data);
+  applyTheme();
+  commit({ noHistory: true });
+  showToast(msg);
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  let el = document.querySelector('.toast');
+  if (!el) { el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+  el.textContent = msg;
+  el.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('on'), 1800);
+}
+
+// 덮어쓰기 뒤 5분 동안의 되돌리기 정보 (새로고침해도 남게 저장)
+function saveRestore() {
+  if (S.restore) store.set(RESTORE_PREFIX + S.scope, JSON.stringify(S.restore));
+  else store.del(RESTORE_PREFIX + S.scope);
+}
+function loadRestore() {
+  try {
+    const r = JSON.parse(store.get(RESTORE_PREFIX + S.scope) || 'null');
+    S.restore = r && r.until > Date.now() ? r : null;
+  } catch (e) { S.restore = null; }
 }
 
 function scheduleCloudSave(delay) {
@@ -190,11 +279,15 @@ function scheduleCloudSave(delay) {
 async function flushCloudSave() {
   saveTimer = null;
   if (!S.cloud || !S.user || !S.base) return; // 서버 문서를 받기 전이면 받은 뒤에 저장
+  if (S.conflict) return; // 어느 버전을 쓸지 고르기 전에는 보내지 않음
+  // 오프라인에서 고친 내용이 있으면 바로 보내지 않고, 서버 최신 버전을 먼저 받아서 덮어쓸지 물어봄 (onRemote)
+  if (isDirty()) { S.cloud.refetch().catch(() => {}); S.sync = 'error'; updateSyncBadge(); return; }
   if (saving) { scheduleCloudSave(300); return; }
   const ops = diffRemote(S.base, toRemote(S.data));
   if (!ops.length) {
     S.sync = 'synced';
     S.lastSync = Date.now();
+    clearDirty();
     updateSyncBadge();
     return;
   }
@@ -205,23 +298,28 @@ async function flushCloudSave() {
   saving = true;
   try {
     await S.cloud.update(ops);
+    S.netDown = false;
     if (!saveTimer) { S.sync = 'synced'; S.lastSync = Date.now(); }
+    if (!diffRemote(S.base, toRemote(S.data)).length) clearDirty();
   } catch (err) {
     console.error('[sync]', err);
     if (S.base === next) { S.base = prev; saveBase(); }
     S.sync = 'error';
+    markDirty();
   }
   saving = false;
   updateSyncBadge();
 }
 
 function syncLabel(short) {
+  if (S.mode === 'cloud' && S.scope !== 'local' && (!S.user || isOffline())) return short ? '오프라인' : '오프라인 · 이 기기에 저장 중이에요. 다시 연결되면 서버와 맞춰요';
   if (S.mode === 'local' || !S.user) return short ? '이 기기에 저장' : '이 기기에만 저장 중 (로그인 없이 사용)';
   if (S.sync === 'syncing') return short ? '동기화 중' : '동기화 중…';
   if (S.sync === 'error') return short ? '동기화 실패' : '동기화에 실패했어요 · 인터넷 연결을 확인하세요';
   return short ? '동기화됨' : '모든 기기에 동기화됨' + (S.lastSync ? ' · 마지막 ' + relTime(S.lastSync) : '');
 }
 function syncDot() {
+  if (S.mode === 'cloud' && S.scope !== 'local' && (!S.user || isOffline())) return '#C98A2E';
   if (S.mode === 'local' || !S.user) return '#9AA0B0';
   return S.sync === 'syncing' ? '#E0A526' : S.sync === 'error' ? '#D2493F' : '#3FA46A';
 }
@@ -232,11 +330,48 @@ function updateSyncBadge() {
 
 // ---------------------------------------------------------------- 시작
 
+// 인터넷 없이 열 때 보여 줄, 마지막으로 로그인했던 계정의 사본
+function cachedAccount() {
+  const uid = store.get(LAST_UID_KEY);
+  return uid && loadLocal(uid) ? uid : null;
+}
+function showOfflineCopy(uid) {
+  S.user = null;
+  S.netDown = true;
+  S.scope = uid;
+  S.data = loadLocal(uid);
+  S.base = loadBase(uid);
+  S.sync = 'error';
+  S.phase = 'app';
+  loadRestore();
+  resetHistory();
+  applyTheme();
+  render();
+}
+
+function registerOffline() {
+  // 인터넷이 끊겨도 사이트가 열리도록 파일 사본을 저장 (https 또는 localhost에서만 동작)
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch((err) => console.warn('[offline]', err));
+  }
+  window.addEventListener('online', () => {
+    S.netDown = false;
+    updateSyncBadge();
+    // 서버 최신 버전을 받아서(onRemote) 오프라인 동안 고친 게 있으면 덮어쓸지 물어봄
+    if (S.cloud) S.cloud.refetch().catch(() => {});
+  });
+  window.addEventListener('offline', () => { updateSyncBadge(); });
+  // 덮어쓰기 되돌리기 시간이 끝나면 안내 줄을 치움
+  setInterval(() => { if (S.restore && S.restore.until <= Date.now()) { S.restore = null; saveRestore(); render(); } }, 15000);
+}
+
 async function boot() {
   bindEvents();
+  registerOffline();
   if (S.mode === 'local') {
     S.scope = 'local';
     S.data = loadLocal('local') || defaultData();
+    syncSnap();
     let started = false;
     try { started = localStorage.getItem(LOCAL_STARTED_KEY) === '1'; } catch (e) { /* 무시 */ }
     S.phase = started ? 'app' : 'login';
@@ -256,12 +391,17 @@ async function boot() {
     S.scope = 'local';
     S.data = loadLocal('local') || S.data;
     S.phase = 'app';
+    syncSnap();
+  } else if (!navigator.onLine && cachedAccount()) {
+    // 인터넷이 없으면 서버를 기다리지 않고 마지막으로 쓰던 계정 사본부터 보여 줌
+    showOfflineCopy(cachedAccount());
   }
   applyTheme();
   render();
   // 서버가 느리거나 장애일 때 "불러오는 중"에 멈추지 않도록 10초 뒤 로그인 화면으로
   const slow = setTimeout(() => {
     if (S.phase !== 'boot') return;
+    if (cachedAccount()) { showOfflineCopy(cachedAccount()); return; }
     S.loginError = '동기화 서버(Supabase)에 연결이 늦어지고 있어요. 잠시 후 새로고침하거나, 아래에서 이 기기에 먼저 써 두세요.';
     S.phase = 'login';
     render();
@@ -271,6 +411,7 @@ async function boot() {
     S.cloud = await initCloud(supabaseConfig, { onUser, onRemote, onError: onCloudError, onRecovery });
   } catch (err) {
     console.error('[supabase]', err);
+    if (S.phase === 'boot' && cachedAccount()) { showOfflineCopy(cachedAccount()); return; }
     S.loginError = '동기화 서버(Supabase)에 연결하지 못했어요. 인터넷 연결을 확인하거나 잠시 후 새로고침하세요. (' + (err.message || err) + ')';
     if (S.phase === 'boot') S.phase = 'login';
     render();
@@ -278,10 +419,18 @@ async function boot() {
   clearTimeout(slow);
 }
 
-function onUser(user) {
+function onUser(user, meta) {
   // 로그인 없이 이 기기에서 쓰는 중이면 그대로 둠
   if (!user && S.offline) { render(); return; }
+  // 인터넷이 끊겨서 로그인 확인을 못 한 것: 로그아웃이 아니라 마지막 사본으로 오프라인 사용
+  if (!user && ((meta && meta.network) || isOffline())) {
+    if (S.scope !== 'local' && S.phase === 'app') { S.netDown = true; updateSyncBadge(); return; }
+    if (cachedAccount()) { showOfflineCopy(cachedAccount()); return; }
+  }
   if (user) {
+    // 기기 저장 모드에서 로그인하면, 그 내용을 계정에 덮어쓸지 서버 문서를 받은 뒤 물어봄
+    if (S.offline || S.fromDevice) S.askDevice = true;
+    S.fromDevice = false;
     S.offline = false;
     try { localStorage.removeItem(OFFLINE_KEY); } catch (e) { /* 무시 */ }
   }
@@ -294,8 +443,10 @@ function onUser(user) {
     render();
     return;
   }
+  const sameAccount = S.scope === user.uid;
   S.user = { uid: user.uid, name: user.displayName || (user.email || '').split('@')[0], email: user.email || '', photo: user.photoURL || '' };
   S.scope = user.uid;
+  store.set(LAST_UID_KEY, user.uid);
   S.deviceRegistered = false;
   S.loginError = '';
   S.base = loadBase(user.uid);
@@ -307,8 +458,18 @@ function onUser(user) {
     S.phase = 'loading';
   }
   S.sync = 'syncing';
+  loadRestore();
+  if (!sameAccount) resetHistory(); else syncSnap();
   applyTheme();
   render();
+}
+
+// 어느 버전을 쓸지 고르는 창 열기
+function openConflict(kind, remote, devices, local) {
+  S.conflict = { kind, remote, devices, local: toPlain(local), at: Date.now() };
+  S.data = normalize(toPlain(local));
+  S.data.devices = devices;
+  syncSnap();
 }
 
 function onRemote(doc) {
@@ -318,7 +479,11 @@ function onRemote(doc) {
     // 처음 로그인: 이 기기에 있던 데이터(캐시 또는 로그인 없이 쓰던 데이터)로 서버 문서를 만듦
     if (S.creating) return;
     S.creating = true;
-    S.data = loadLocal(S.scope) || loadLocal('local') || defaultData();
+    S.askDevice = false;
+    const dev = loadLocal('local');
+    if (dev) store.set(LOCAL_HANDLED_KEY, String(dev.updatedAt || 0));
+    S.data = loadLocal(S.scope) || dev || defaultData();
+    syncSnap();
     const full = toRemote(S.data);
     S.base = full;
     saveBase();
@@ -328,19 +493,41 @@ function onRemote(doc) {
       .catch((err) => { console.error('[sync]', err); S.sync = 'error'; S.base = null; })
       .finally(() => { S.creating = false; updateSyncBadge(); });
   } else {
-    // 아직 서버에 못 보낸 이 기기의 변경을 서버 최신 상태 위에 다시 얹음
-    const pending = S.base ? diffRemote(S.base, toRemote(S.data)) : [];
     const remote = JSON.parse(JSON.stringify(doc));
     const devices = remote.devices || {};
     delete remote.devices;
+    S.netDown = false;
+    if (S.conflict) {
+      // 고르는 중에 서버가 또 바뀌면 서버 쪽 버전만 최신으로 바꿔 둠
+      S.conflict.remote = remote;
+      S.conflict.devices = devices;
+      S.base = remote;
+      saveBase();
+      render();
+      return;
+    }
+    const pending = S.base ? diffRemote(S.base, toRemote(S.data)) : [];
+    const dev = S.askDevice ? loadLocal('local') : null;
+    const devHandled = Number(store.get(LOCAL_HANDLED_KEY) || 0);
+    S.askDevice = false;
     S.base = remote;
-    S.data = fromRemote(applyOps(remote, pending));
-    S.data.devices = devices;
     saveBase();
-    saveLocal(S.scope, S.data);
-    saveLocal('last', S.data);
-    if (pending.length) scheduleCloudSave(0);
-    else if (!saveTimer && !saving) { S.sync = 'synced'; S.lastSync = Date.now(); }
+    if (dev && hasContent(dev) && (dev.updatedAt || 0) > devHandled && diffRemote(remote, toRemote(dev)).length) {
+      // 기기 저장 모드에서 쓰던 내용 vs 계정 내용
+      openConflict('device', remote, devices, dev);
+    } else if (pending.length && isDirty()) {
+      // 인터넷이 끊긴 동안 이 기기에서 바꾼 내용 vs 서버 내용
+      openConflict('offline', remote, devices, S.data);
+    } else {
+      // 아직 서버에 못 보낸 이 기기의 변경(입력 직후 등)을 서버 최신 상태 위에 다시 얹음
+      S.data = fromRemote(applyOps(remote, pending));
+      S.data.devices = devices;
+      syncSnap();
+      saveLocal(S.scope, S.data);
+      saveLocal('last', S.data);
+      if (pending.length) scheduleCloudSave(0);
+      else if (!saveTimer && !saving) { S.sync = 'synced'; S.lastSync = Date.now(); clearDirty(); }
+    }
     if (!S.deviceRegistered) {
       S.deviceRegistered = true;
       S.cloud.touchDevice(deviceId(), { name: deviceName(), lastSeen: Date.now() }).catch((err) => console.error('[device]', err));
@@ -348,15 +535,51 @@ function onRemote(doc) {
   }
   S.phase = 'app';
   applyTheme();
-  if (wasLoading) render();
+  if (wasLoading || S.conflict) render();
   else { renderSoft(); updateSyncBadge(); }
 }
 
+// 고른 버전으로 정하기: 'local' = 이 기기(오프라인 · 기기 저장) 버전으로 서버를 덮어씀, 'server' = 서버 버전을 씀
+function resolveConflict(pick) {
+  const c = S.conflict;
+  if (!c) return;
+  const server = fromRemote(c.remote);
+  const local = normalize(toPlain(c.local));
+  const chosen = pick === 'local' ? local : server;
+  S.conflict = null;
+  S.sync = 'syncing';
+  S.data = normalize(toPlain(chosen));
+  S.data.devices = c.devices;
+  clearDirty();
+  if (c.kind === 'device') store.set(LOCAL_HANDLED_KEY, String(c.local.updatedAt || Date.now()));
+  // 5분 동안 반대 버전으로 바꿀 수 있게 둘 다 보관
+  S.restore = { kind: c.kind, pick, cur: 'after', after: toPlain(chosen), before: toPlain(pick === 'local' ? server : local), until: Date.now() + RESTORE_MS };
+  saveRestore();
+  resetHistory();
+  applyTheme();
+  commit({ noHistory: true });
+}
+
+// 되돌리기 줄: before(고르지 않은 버전) ↔ after(고른 버전)
+function switchRestore(to) {
+  const r = S.restore;
+  if (!r || r.until <= Date.now()) { S.restore = null; saveRestore(); render(); return; }
+  const devices = S.data.devices;
+  S.data = normalize(toPlain(r[to]));
+  S.data.devices = devices;
+  r.cur = to;
+  saveRestore();
+  applyTheme();
+  commit();
+}
+
 function onCloudError(err) {
-  console.error('[firestore]', err);
+  console.error('[sync]', err);
   S.sync = 'error';
+  if (isOffline() || /fetch|network|load failed/i.test((err && err.message) || '')) S.netDown = true;
   if (S.phase === 'loading') {
     S.data = loadLocal(S.scope) || defaultData();
+    syncSnap();
     S.phase = 'app';
     render();
   } else {
@@ -381,7 +604,7 @@ function render() {
   let html;
   if (S.phase === 'boot' || S.phase === 'loading') html = `<div class="boot">${S.phase === 'loading' ? '플래너를 불러오는 중…' : '불러오는 중…'}</div>`;
   else if (S.phase === 'login') html = viewLogin();
-  else html = viewApp() + viewModal();
+  else html = viewApp() + viewModal() + viewConflict();
   $app.innerHTML = html;
 
   window.scrollTo(0, scrollY);
@@ -498,6 +721,10 @@ function viewApp() {
           <button class="icon-btn nav-arrow" data-act="next-month" aria-label="다음 달">${ICON.right}</button>
           <button class="today-link" data-act="go-today">오늘</button>
         </nav>
+        <span class="history-btns" role="group" aria-label="실행 취소 · 다시 실행">
+          <button class="icon-btn hist-btn" data-act="undo" title="실행 취소 (Ctrl+Z)" aria-label="실행 취소"${S.undo.length && !S.conflict ? '' : ' disabled'}>${ICON.undo}</button>
+          <button class="icon-btn hist-btn" data-act="redo" title="다시 실행 (Ctrl+Shift+Z)" aria-label="다시 실행"${S.redo.length && !S.conflict ? '' : ' disabled'}>${ICON.redo}</button>
+        </span>
         <button class="btn btn-sm" data-act="open-settings" aria-label="환경설정">${ICON.gear}<span class="btn-label">환경설정</span></button>
         <button class="btn btn-sm refresh-btn" data-act="refresh" title="최신 버전으로 새로고침" aria-label="새로고침">${ICON.refresh}<span class="btn-label">새로고침</span></button>
         <button class="btn account-pill" data-act="open-account">
@@ -511,6 +738,7 @@ function viewApp() {
     ${viewCalendar()}
     ${viewLegend()}
   </div>
+  ${viewRestoreBar()}
   ${S.ui.modal === 'settings' && S.ui.setTab === 'export' ? `<div class="print-host" aria-hidden="true">${viewPrintSheet()}</div>` : ''}`;
 }
 
@@ -806,6 +1034,50 @@ function viewModal() {
   else if (m === 'settings') inner = viewSettingsModal();
   else if (m === 'account') inner = viewAccountModal();
   return `<div class="overlay${m === 'account' ? ' overlay-top' : ''}" data-act="overlay">${inner}</div>`;
+}
+
+// 오프라인에서 바꾼 내용 / 기기 저장 모드 내용을 서버에 덮어쓸지 고르기 (닫을 수 없음: 꼭 골라야 함)
+function viewConflict() {
+  const c = S.conflict;
+  if (!c) return '';
+  const server = fromRemote(c.remote);
+  const local = normalize(toPlain(c.local));
+  const count = (d) => `할 일 ${d.todos.length}개 · 시험 ${d.exams.length}개 · 문제집 ${d.books.length}개`;
+  const device = c.kind === 'device';
+  const title = device ? '기기 저장 모드에서 쓰던 내용이 있어요' : '인터넷이 끊긴 동안 바꾼 내용이 있어요';
+  const desc = device
+    ? '로그인 없이 이 기기에 저장해 둔 플래너가 있어요. 이 내용으로 계정의 플래너를 덮어쓸까요?'
+    : '오프라인일 때 이 기기에서 고친 내용이 아직 서버(다른 기기)에 반영되지 않았어요. 오프라인 버전으로 서버의 플래너를 덮어쓸까요?';
+  return `<div class="overlay conflict-overlay">
+    <div class="modal modal-sm conflict" role="alertdialog" aria-modal="true" aria-labelledby="conflict-title">
+      <h2 id="conflict-title" class="conflict-title">${title}</h2>
+      <p class="conflict-desc">${desc}</p>
+      <div class="conflict-compare">
+        <div><b>${device ? '이 기기 (기기 저장)' : '이 기기 (오프라인)'}</b><span class="hint small">${count(local)}</span><span class="hint small">마지막 수정 ${local.updatedAt ? relTime(local.updatedAt) : '-'}</span></div>
+        <div><b>서버 (계정)</b><span class="hint small">${count(server)}</span></div>
+      </div>
+      <button class="btn btn-primary" data-act="conflict-local">예, ${device ? '이 기기 내용으로' : '오프라인 버전으로'} 덮어쓰기</button>
+      <button class="btn" data-act="conflict-server">아니요, 서버 버전 쓰기</button>
+      <p class="hint small center">어느 쪽을 골라도 5분 동안은 화면 아래 버튼으로 다른 버전으로 되돌릴 수 있어요.</p>
+    </div>
+  </div>`;
+}
+
+function viewRestoreBar() {
+  const r = S.restore;
+  if (!r || r.until <= Date.now() || S.conflict) return '';
+  const mins = Math.max(1, Math.ceil((r.until - Date.now()) / 60000));
+  const pickedLocal = r.pick === 'local';
+  const localName = r.kind === 'device' ? '이 기기 내용' : '오프라인 버전';
+  const showing = (r.cur === 'after') === pickedLocal ? localName : '서버 버전';
+  const btn = r.cur === 'after'
+    ? `<button class="btn btn-sm" data-act="restore-before">되돌리기</button>`
+    : `<button class="btn btn-sm" data-act="restore-after">다시 돌아오기</button>`;
+  return `<div class="restore-bar" role="status">
+    <span>지금은 <b>${showing}</b>을 쓰고 있어요 <span class="hint small">· ${mins}분 동안 바꿀 수 있어요</span></span>
+    ${btn}
+    <button class="icon-btn sm" data-act="restore-close" aria-label="안내 닫기">${ICON.x}</button>
+  </div>`;
 }
 
 function modalHead(title, closeAct) {
@@ -1211,15 +1483,16 @@ function viewAccountModal() {
     `<div class="device-row"><span>${id === deviceId() ? '이 기기 · ' : ''}${esc(d.name)}</span><span class="hint small">${id === deviceId() ? '지금 사용 중' : relTime(d.lastSeen)}</span></div>`).join('')
     + (allDevices.length > DEVICE_LIMIT ? `<button class="link-btn device-more" data-act="toggle-devices">${S.ui.allDevices ? '접기' : `더보기 (${allDevices.length - DEVICE_LIMIT}개)`}</button>` : '');
   const cloud = S.mode === 'cloud' && user;
+  const offlineCopy = S.mode === 'cloud' && !user && S.scope !== 'local';
   return `<div class="modal modal-sm" role="dialog" aria-modal="true" aria-label="계정">
     <div class="account-head">
       ${avatar(user || { name: '이 기기' }, user ? (user.name || 'M').charAt(0).toUpperCase() : '·', 'avatar-lg')}
-      <span class="account-info"><span>${esc(user ? user.name : '로그인 없이 사용 중')}</span><span class="hint small">${esc(user ? user.email : '데이터가 이 브라우저에만 저장돼요')}</span></span>
+      <span class="account-info"><span>${esc(user ? user.name : offlineCopy ? '오프라인 사용 중' : '로그인 없이 사용 중')}</span><span class="hint small">${esc(user ? user.email : offlineCopy ? '마지막으로 동기화한 버전을 보여 주고 있어요' : '데이터가 이 브라우저에만 저장돼요')}</span></span>
       <button class="icon-btn" data-act="close-modal" aria-label="닫기">${ICON.close}</button>
     </div>
     <div class="sync-box">
       <span class="sync-line"><span class="sync-dot" data-sync-dot style="background:${syncDot()}"></span><span data-sync-text="long">${esc(syncLabel(false))}</span></span>
-      <span class="hint small">${cloud ? '할 일, 카테고리, 시험일, 테마 설정이 모든 기기에 자동 저장돼요.' : 'Supabase를 설정하면 이메일 로그인으로 여러 기기에서 같은 플래너를 쓸 수 있어요.'}</span>
+      <span class="hint small">${offlineCopy ? '지금 고치는 내용은 이 기기에 저장되고, 인터넷이 다시 연결되면 서버에 덮어쓸지 물어봐요.' : cloud ? '할 일, 카테고리, 시험일, 테마 설정이 모든 기기에 자동 저장돼요.' : 'Supabase를 설정하면 이메일 로그인으로 여러 기기에서 같은 플래너를 쓸 수 있어요.'}</span>
       ${cloud ? '<button class="btn" data-act="sync-now">지금 동기화</button>' : ''}
     </div>
     ${cloud && devices ? `<div class="field-group"><span class="field-label">로그인된 기기</span>${devices}</div>` : ''}
@@ -1231,7 +1504,7 @@ function viewAccountModal() {
       </div>
     </div>
     ${cloud ? '<button class="btn danger" data-act="logout">로그아웃</button>' : ''}
-    ${S.mode === 'cloud' && !user ? '<button class="btn btn-primary" data-act="go-login">로그인해서 동기화하기</button>' : ''}
+    ${S.mode === 'cloud' && !user && !offlineCopy ? '<button class="btn btn-primary" data-act="go-login">로그인해서 동기화하기</button>' : ''}
   </div>`;
 }
 
@@ -1291,7 +1564,15 @@ const actions = {
   },
   reload: () => location.reload(),
   'toggle-devices': () => { S.ui.allDevices = !S.ui.allDevices; render(); },
+  undo: () => { if (!S.conflict && S.undo.length) stepHistory(S.undo, S.redo, 'inv', '실행 취소했어요'); },
+  redo: () => { if (!S.conflict && S.redo.length) stepHistory(S.redo, S.undo, 'fwd', '다시 실행했어요'); },
+  'conflict-local': () => resolveConflict('local'),
+  'conflict-server': () => resolveConflict('server'),
+  'restore-before': () => switchRestore('before'),
+  'restore-after': () => switchRestore('after'),
+  'restore-close': () => { S.restore = null; saveRestore(); render(); },
   'go-login': () => {
+    S.fromDevice = S.offline || S.scope === 'local';
     S.offline = false;
     try { localStorage.removeItem(OFFLINE_KEY); } catch (e) { /* 무시 */ }
     S.ui.modal = null;
@@ -1315,6 +1596,7 @@ const actions = {
       try { localStorage.setItem(OFFLINE_KEY, '1'); } catch (e) { /* 무시 */ }
       S.scope = 'local';
       S.data = loadLocal('local') || S.data;
+      resetHistory();
       applyTheme();
       S.phase = 'app';
       render();
@@ -1327,6 +1609,10 @@ const actions = {
   logout: async () => {
     if (!confirm('로그아웃할까요? 이 기기에 저장된 사본은 다음 로그인 때 다시 동기화돼요.')) return;
     S.ui.modal = null;
+    store.del(LAST_UID_KEY); // 로그아웃한 계정의 사본은 오프라인으로 열지 않음
+    S.restore = null;
+    saveRestore();
+    resetHistory();
     await S.cloud.signOut();
   },
   'sync-now': () => scheduleCloudSave(0),
@@ -1841,6 +2127,14 @@ function bindEvents() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && S.ui.modal) { actions['close-modal'](); return; }
     const typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+    if (S.phase === 'app' && !S.ui.modal && !typing && (e.ctrlKey || e.metaKey) && !e.altKey) {
+      const k = e.key.toLowerCase();
+      if (k === 'z' || k === 'y') {
+        e.preventDefault();
+        actions[k === 'y' || e.shiftKey ? 'redo' : 'undo']();
+        return;
+      }
+    }
     if (S.phase === 'app' && !S.ui.modal && !typing && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       shiftMonth(e.key === 'ArrowRight' ? 1 : -1);
       return;

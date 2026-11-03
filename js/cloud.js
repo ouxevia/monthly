@@ -61,8 +61,13 @@ export async function initCloud(config, { onUser, onRemote, onError, onRecovery 
   // 다른 탭에서 돌아왔을 때 놓친 변경 다시 읽기
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') fetchDoc(); });
 
-  const { data } = await sb.auth.getSession();
-  setUser(data && data.session ? data.session.user : null);
+  // 인터넷이 끊겨서 로그인 상태를 확인하지 못한 경우는 "로그아웃"과 구분해서 알려 줌
+  // (앱은 이 기기에 저장된 마지막 버전을 오프라인으로 보여 줌)
+  const isNetworkError = (e) => !navigator.onLine || (e && (e.name === 'AuthRetryableFetchError' || /fetch|network|load failed/i.test(e.message || '')));
+  const { data, error } = await sb.auth.getSession();
+  const session = data && data.session;
+  if (!session && error && isNetworkError(error)) { announced = true; onUser(null, { network: true }); }
+  else setUser(session ? session.user : null);
 
   async function rpc(ops) {
     const { error } = await sb.rpc('apply_planner_ops', { ops });
@@ -70,6 +75,15 @@ export async function initCloud(config, { onUser, onRemote, onError, onRecovery 
   }
 
   return {
+    // 다시 연결됐을 때: 로그인 상태를 다시 확인하고 서버 문서를 다시 받아 옴
+    async refetch() {
+      if (!uid) {
+        const { data: d } = await sb.auth.getSession();
+        if (d && d.session) setUser(d.session.user);
+        return;
+      }
+      fetchDoc();
+    },
     async signIn(email, password) {
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw error;
