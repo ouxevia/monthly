@@ -16,7 +16,7 @@ export function defaultData() {
     books: [],
     todos: [],
     exams: [],
-    settings: { themeId: 'rb-pastel', styleId: 'grid', prevStyle: 'grid', fontId: 'myeongjo', showGoal: true, showAbbr: true, sortBySubject: false, colorMode: 'subject', customThemes: '[]' },
+    settings: { themeId: 'rb-pastel', styleId: 'grid', prevStyle: 'grid', fontId: 'myeongjo', showGoal: true, showAbbr: true, sortBySubject: false, colorMode: 'subject', customThemes: '[]', customFonts: '[]' },
     devices: {},
     updatedAt: 0,
   };

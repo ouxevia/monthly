@@ -1,5 +1,6 @@
 import { THEMES, THEME_GROUPS, STYLES, FONTS, MONTH_NAMES, WEEKDAYS, WEEKDAYS_KO, holidayOf, inkOn, makePair, buildCustomTheme } from './data.js';
 import { supabaseConfig, isCloudConfigured } from './config.js';
+import { cacheGet, cachePut, cacheDel, familyOf, registerFont, isRegistered, measureFont, LEGACY } from './fonts.js';
 import { defaultData, normalize, loadLocal, saveLocal, toPlain, newId, deviceId, deviceName, toRemote, fromRemote, diffRemote, applyOps } from './store.js';
 
 // ---------------------------------------------------------------- 상태
@@ -146,7 +147,41 @@ function todosByDay() {
 }
 const abbrOf = (s) => (s ? (s.abbr || Array.from(s.name || '')[0] || '') : '');
 const curStyle = () => STYLES.find((s) => s.id === settings().styleId) || STYLES[2];
-const curFont = () => FONTS.find((f) => f.id === settings().fontId) || FONTS[0];
+// 내 글씨체: settings.customFonts 에 JSON 문자열로 [{ id, name, path, file, scale, chip, nudge, size }]
+function customFonts() {
+  try {
+    const list = JSON.parse(settings().customFonts || '[]');
+    return Array.isArray(list) ? list.filter((f) => f && f.id && f.path) : [];
+  } catch (e) { return []; }
+}
+function saveCustomFonts(list) { settings().customFonts = JSON.stringify(list); }
+const userFontDef = (f) => ({ id: f.id, name: f.name, desc: '내가 올린 글씨체', family: `'${familyOf(f.id)}', 'Nanum Myeongjo', serif`, scale: f.scale || 1, chip: f.chip || 11.5, nudge: f.nudge || 0, custom: true, path: f.path });
+const allFonts = () => FONTS.concat(customFonts().map(userFontDef));
+const curFont = () => allFonts().find((f) => f.id === settings().fontId) || FONTS[0];
+
+// 내 글씨체 파일 불러오기: 이 기기 보관함 → 없으면 서버에서 받아서 보관 (한 번만)
+const fontState = {}; // id → loading | ready | error
+async function ensureUserFonts() {
+  for (const f of customFonts()) {
+    if (fontState[f.id] === 'loading' || fontState[f.id] === 'ready' || isRegistered(f.id)) continue;
+    fontState[f.id] = 'loading';
+    try {
+      let buf = await cacheGet(f.path);
+      if (!buf) {
+        if (!S.cloud || !S.user) { fontState[f.id] = 'error'; continue; }
+        buf = await S.cloud.downloadFont(f.path);
+        cachePut(f.path, buf);
+      }
+      await registerFont(f.id, buf);
+      fontState[f.id] = 'ready';
+    } catch (err) {
+      console.error('[font]', f.name, err);
+      fontState[f.id] = 'error';
+    }
+    // 그 글씨체를 쓰는 중이거나 글씨체 탭을 보고 있으면 다시 그림
+    if (settings().fontId === f.id || S.ui.setTab === 'font') render();
+  }
+}
 const isNight = () => curStyle().id === 'night';
 
 function colorOf(subjectId) {
@@ -165,6 +200,7 @@ function applyTheme() {
   set('--cell-bg', st.cellBg); set('--head-bg', st.headBg); set('--radius', st.radius + 'px');
   set('--sun', st.sun); set('--sat', st.sat); set('--circle', st.circle);
   set('--today-bg', st.todayBg); set('--today-badge', st.todayBadge); set('--today-fg', st.todayFg);
+  if (f.custom || customFonts().length) ensureUserFonts();
   set('--font', f.family); set('--k', f.scale); set('--chip-fs', f.chip + 'px'); set('--text-nudge', (f.nudge || 0) + 'em');
   set('--accent-light', tc(th, 0)[1]); set('--accent-deep', tc(th, 0)[2]); set('--month-on', tc(th, 3)[1]); set('--month-on-ink', inkOn(tc(th, 3)[1]));
   set('--drop', tc(th, 3)[1]);
@@ -460,6 +496,7 @@ function onUser(user, meta) {
   S.sync = 'syncing';
   loadRestore();
   if (!sameAccount) resetHistory(); else syncSnap();
+  Object.keys(fontState).forEach((k) => { if (fontState[k] === 'error') delete fontState[k]; }); // 로그인됐으니 못 받았던 글씨체 다시 시도
   applyTheme();
   render();
 }
@@ -1369,23 +1406,95 @@ function paletteEditor() {
   </div>`;
 }
 
-function fontBody() {
-  const p = pendingOf();
-  const th = findTheme(p.themeId) || curTheme();
-  return '<div class="pick-grid cols-2">' + FONTS.map((f) => {
-    const on = p.fontId === f.id;
-    const k = f.scale;
-    return `<button class="pick-card font-card${on ? ' on' : ''}" data-act="pick-font" data-id="${f.id}" aria-pressed="${on}" style="font-family:${f.family}">
-      <span class="pick-name" style="font-size:${Math.round(20 * k)}px">${esc(f.name)} <small style="font-size:${Math.round(12 * k)}px">${esc(f.desc)}</small>${pickMark(on, settings().fontId === f.id)}</span>
+function fontPreview(f, p, th) {
+  const on = p.fontId === f.id;
+  const k = f.scale;
+  const state = f.custom ? fontState[f.id] : 'ready';
+  const note = state === 'error' ? ' · 불러오지 못했어요 (인터넷 연결 후 다시 열어 주세요)' : state !== 'ready' ? ' · 불러오는 중…' : '';
+  return `<span class="pick-name" style="font-size:${Math.round(20 * k)}px">${esc(f.name)} <small style="font-size:${Math.round(12 * k)}px">${esc(f.desc + note)}</small>${pickMark(on, settings().fontId === f.id)}</span>
       <span style="font-size:${Math.round(22 * k)}px">May · GOAL : 1학기 중간고사 대비</span>
       <span class="row-wrap">
         <span style="font-size:${Math.round(16 * k)}px;font-weight:700">D-12</span>
         <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${tc(th, 0)[1]};color:${inkOn(tc(th, 0)[1])}"><b>쎈</b> 06단원</span>
         <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${tc(th, 1)[2]};color:${inkOn(tc(th, 1)[2])}"><b>RPM</b> p.109~119</span>
         <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${tc(th, 2)[1]};color:${inkOn(tc(th, 2)[1])}"><b>모의고사</b> 38~40번</span>
+      </span>`;
+}
+
+function fontBody() {
+  const p = pendingOf();
+  const th = findTheme(p.themeId) || curTheme();
+  const canUpload = S.mode === 'cloud' && S.user && S.cloud;
+  const up = S.ui.fontUpload;
+  // 내 글씨체: 이 계정에만 보임
+  const mine = customFonts().map(userFontDef).map((f) => {
+    const on = p.fontId === f.id;
+    return `<div class="pick-card font-card user-font${on ? ' on' : ''}" style="font-family:${f.family}">
+      <button class="font-pick" data-act="pick-font" data-id="${f.id}" aria-pressed="${on}">${fontPreview(f, p, th)}</button>
+      <span class="pal-tools">
+        <button class="btn btn-sm" data-act="font-size" data-id="${f.id}" data-dir="-1">작게</button>
+        <button class="btn btn-sm" data-act="font-size" data-id="${f.id}" data-dir="1">크게</button>
+        <button class="btn btn-sm" data-act="font-rename" data-id="${f.id}">이름 바꾸기</button>
+        <button class="btn btn-sm danger" data-act="font-delete" data-id="${f.id}">삭제</button>
       </span>
-    </button>`;
-  }).join('') + '</div>';
+    </div>`;
+  }).join('');
+  const add = canUpload
+    ? `<label class="pick-card pal-new font-new${up ? ' busy' : ''}">${up ? `<span>${esc(up)}</span>` : `${ICON.plus}<span>내 글씨체 올리기</span><small>.ttf · .otf · .woff 파일 (20MB까지)</small>`}<input type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" data-input="font-file" hidden${up ? ' disabled' : ''}></label>`
+    : `<div class="pick-card pal-new font-new off"><span>내 글씨체 올리기</span><small>${S.mode === 'cloud' ? '로그인하면 내 계정에 글씨체를 올릴 수 있어요' : '동기화 서버(Supabase)를 설정하면 쓸 수 있어요'}</small></div>`;
+  const builtIn = FONTS.map((f) => {
+    const on = p.fontId === f.id;
+    return `<button class="pick-card font-card${on ? ' on' : ''}" data-act="pick-font" data-id="${f.id}" aria-pressed="${on}" style="font-family:${f.family}">${fontPreview(f, p, th)}</button>`;
+  }).join('');
+  return `<h3 class="pick-group">내 글씨체 <small>내가 올린 폰트 · 내 계정에서만 보여요</small></h3>
+    <div class="pick-grid cols-2">${mine}${add}</div>
+    <h3 class="pick-group">기본 글씨체</h3>
+    <div class="pick-grid cols-2">${builtIn}</div>`;
+}
+
+const FONT_TYPES = { ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2' };
+
+// 폰트 파일 올리기: 확인(글꼴로 읽히는지) → 크기 · 위치 자동 측정 → 이름 정하기 → 내 계정 저장소에 올림
+async function uploadUserFont(file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (!FONT_TYPES[ext]) { alert('.ttf, .otf, .woff, .woff2 폰트 파일만 올릴 수 있어요.'); return; }
+  if (file.size > 20 * 1024 * 1024) { alert('20MB보다 큰 폰트 파일은 올릴 수 없어요.'); return; }
+  if (!S.user || !S.cloud) { alert('로그인한 뒤에 올릴 수 있어요.'); return; }
+  if (isOffline()) { alert('인터넷에 연결된 뒤에 올려 주세요.'); return; }
+  const id = newId('f');
+  let buf;
+  try {
+    buf = await file.arrayBuffer();
+    await registerFont(id, buf.slice(0));
+  } catch (err) {
+    alert('폰트 파일을 읽지 못했어요. 다른 파일로 시도해 주세요.');
+    return;
+  }
+  const legacy = LEGACY.find((l) => l.match.test(file.name));
+  const name = prompt('글씨체 이름을 정해 주세요', legacy ? legacy.name : file.name.replace(/\.[^.]+$/, ''));
+  if (name === null) return;
+  const m = measureFont(familyOf(id));
+  S.ui.fontUpload = `올리는 중… (${(file.size / 1048576).toFixed(1)}MB)`;
+  render();
+  try {
+    const path = await S.cloud.uploadFont(new Blob([buf], { type: FONT_TYPES[ext] }), id + '.' + ext, FONT_TYPES[ext]);
+    await cachePut(path, buf);
+    fontState[id] = 'ready';
+    const list = customFonts();
+    list.push({ id, name: (name || '').trim().slice(0, 30) || '내 글씨체', path, file: file.name.slice(0, 80), size: file.size, ...m });
+    saveCustomFonts(list);
+    // 예전 기본 글씨체(묘은 · 햄이)를 쓰던 중이었으면 올린 글씨체로 이어서 선택
+    if (legacy && settings().fontId === legacy.id) settings().fontId = id;
+    if (legacy && S.ui.pending && S.ui.pending.fontId === legacy.id) S.ui.pending.fontId = id;
+    S.ui.fontUpload = null;
+    applyTheme();
+    commit();
+  } catch (err) {
+    console.error('[font upload]', err);
+    S.ui.fontUpload = null;
+    render();
+    alert('올리지 못했어요: ' + (err.message || err) + (/bucket|not found|policy|security/i.test(err.message || '') ? '\n(관리자: supabase.sql의 6번 "내 글씨체"를 SQL Editor에서 실행했는지 확인해 주세요)' : ''));
+  }
 }
 
 function displayBody() {
@@ -1648,7 +1757,7 @@ const actions = {
     // 홈 화면 앱처럼 주소창이 없을 때를 위한 새로고침: 저장된 사본 대신 최신 파일을 다시 받아옴
     const btn = document.querySelector('.refresh-btn');
     if (btn) btn.disabled = true;
-    const files = ['./', 'index.html', 'css/style.css', 'js/app.js', 'js/data.js', 'js/store.js', 'js/cloud.js', 'js/config.js'];
+    const files = ['./', 'index.html', 'css/style.css', 'js/app.js', 'js/data.js', 'js/store.js', 'js/cloud.js', 'js/config.js', 'js/fonts.js', 'sw.js'];
     try {
       await Promise.all(files.map((f) => fetch(new URL('../' + f, import.meta.url), { cache: 'reload' }).catch(() => null)));
     } catch (e) { /* 무시 */ }
@@ -1823,6 +1932,38 @@ const actions = {
   },
   'pick-theme': (el) => { pendingOf().themeId = el.dataset.id; render(); },
   'pick-font': (el) => { pendingOf().fontId = el.dataset.id; render(); },
+  'font-size': (el) => {
+    const list = customFonts();
+    const f = list.find((x) => x.id === el.dataset.id);
+    if (!f) return;
+    f.scale = Math.min(1.6, Math.max(0.7, Math.round((f.scale || 1) * (el.dataset.dir === '1' ? 1.05 : 1 / 1.05) * 100) / 100));
+    f.chip = Math.round(11.5 * f.scale * 2) / 2;
+    saveCustomFonts(list);
+    applyTheme();
+    commit();
+  },
+  'font-rename': (el) => {
+    const list = customFonts();
+    const f = list.find((x) => x.id === el.dataset.id);
+    if (!f) return;
+    const name = prompt('글씨체 이름', f.name);
+    if (!name || !name.trim()) return;
+    f.name = name.trim().slice(0, 30);
+    saveCustomFonts(list);
+    commit();
+  },
+  'font-delete': async (el) => {
+    const list = customFonts();
+    const f = list.find((x) => x.id === el.dataset.id);
+    if (!f || !confirm(`"${f.name}" 글씨체를 지울까요? 내 모든 기기에서 사라져요.`)) return;
+    saveCustomFonts(list.filter((x) => x.id !== f.id));
+    if (settings().fontId === f.id) settings().fontId = FONTS[0].id;
+    if (S.ui.pending && S.ui.pending.fontId === f.id) S.ui.pending.fontId = FONTS[0].id;
+    applyTheme();
+    commit();
+    cacheDel(f.path);
+    if (S.cloud && S.user) S.cloud.deleteFont(f.path).catch((err) => console.error('[font delete]', err));
+  },
   'pal-new': () => {
     const th = findTheme(pendingOf().themeId) || curTheme();
     S.ui.palEdit = { id: null, name: '', colors: th.base.slice(0, 10).map((hex, i) => ({ name: th.c[i][0], hex })) };
@@ -2122,6 +2263,7 @@ function bindEvents() {
       if (th) { S.ui.palEdit.colors = th.base.map((hex, i) => ({ name: th.c[i][0], hex })); render(); }
     }
     if (kind === 'import' && el.files && el.files[0]) importBackup(el.files[0]);
+    if (kind === 'font-file' && el.files && el.files[0]) uploadUserFont(el.files[0]);
   });
 
   document.addEventListener('keydown', (e) => {

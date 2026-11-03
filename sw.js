@@ -5,11 +5,11 @@
 // - 구글 글꼴 파일: 한 번 받으면 사본을 씀 (파일이 바뀌지 않음)
 // - Supabase(로그인 · 동기화) 요청은 건드리지 않음: 플래너 데이터는 앱이 localStorage에 따로 저장
 
-const CACHE = 'exam-monthly-v1';
+const CACHE = 'exam-monthly-v2';
 const CORE = [
   './', 'index.html', 'manifest.webmanifest',
   'css/style.css',
-  'js/app.js', 'js/data.js', 'js/store.js', 'js/cloud.js', 'js/config.js',
+  'js/app.js', 'js/data.js', 'js/store.js', 'js/cloud.js', 'js/config.js', 'js/fonts.js',
   'js/vendor/supabase-2.116.0.js', 'js/vendor/html2canvas-1.4.1.min.js',
   'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-32.png',
 ];
