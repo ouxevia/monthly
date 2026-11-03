@@ -3,9 +3,10 @@
    색 · 선 · 글씨체 값은 js/app.js의 applyTheme()가 CSS 변수로 넣어줍니다.
    ============================================================ */
 
-/* 그리운 묘은체: 글씨체로 고를 때만 내려받음 (파일이 커서 swap으로 먼저 다른 글씨로 보여 줌) */
+/* 그리운 묘은체 · 햄이체: 글씨체로 고를 때만 내려받음 (파일이 커서 swap으로 먼저 다른 글씨로 보여 줌) */
 @font-face { font-family: 'Griun Myoeun Heullim'; src: url('../fonts/Griun_MyoeunHeullim-Rg.ttf') format('truetype'); font-display: swap; }
 @font-face { font-family: 'Griun Myoeun Ddobak'; src: url('../fonts/Griun_Myoeunddobak-Rg.ttf') format('truetype'); font-display: swap; }
+@font-face { font-family: 'Griun Haemi'; src: url('../fonts/Study_ham2-Rg.ttf') format('truetype'); font-display: swap; }
 
 :root {
   --ink: #2F2B27;
@@ -664,4 +665,48 @@ body.dark .notice-ok { color: #8FD6A8; }
   /* 계정 창 */
   .modal-sm { padding: 16px; }
   .device-row { font-size: calc(13px * var(--k)); padding: 8px 10px; }
+}
+
+/* ---------- 실행 취소 · 다시 실행 ---------- */
+.history-btns { display: inline-flex; gap: 2px; }
+.hist-btn { width: 34px; height: 34px; color: var(--icon); }
+.hist-btn:disabled { opacity: 0.3; cursor: default; }
+.toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 12px); z-index: 80;
+  background: #2F2B27; color: #FFFFFF; border-radius: 20px; padding: 9px 16px; font-size: 14px;
+  opacity: 0; pointer-events: none; transition: opacity 0.18s, transform 0.18s;
+}
+.toast.on { opacity: 0.94; transform: translate(-50%, 0); }
+
+/* ---------- 오프라인 버전 고르기 · 5분 되돌리기 ---------- */
+.conflict-overlay { z-index: 70; }
+.conflict { gap: 12px; }
+.conflict-title { margin: 0; font-size: calc(19px * var(--k)); font-weight: 700; }
+.conflict-desc { margin: 0; font-size: calc(14px * var(--k)); line-height: 1.55; }
+.conflict-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.conflict-compare > div { display: flex; flex-direction: column; gap: 3px; border: 1px solid var(--mline); border-radius: 10px; padding: 10px 12px; font-size: calc(14px * var(--k)); }
+.restore-bar {
+  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 45;
+  display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 24px);
+  background: var(--card); color: var(--card-ink); border: 1px solid var(--mline); border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16); padding: 8px 8px 8px 16px; font-size: calc(14px * var(--k));
+}
+@media (max-width: 560px) {
+  .restore-bar { left: 12px; right: 12px; transform: none; flex-wrap: wrap; font-size: calc(13px * var(--k)); }
+}
+@media (max-width: 700px) {
+  /* 폰: 달 이동 · 실행 취소 · 설정 · 새로고침 · 계정이 한 줄에 들어가게 */
+  .top-right { gap: 4px; }
+  .history-btns { gap: 0; }
+  .hist-btn { width: 28px; height: 32px; }
+  .month-nav { margin-right: 0; }
+  .nav-arrow { width: 32px; height: 32px; }
+  .month-nav .year-text { min-width: 46px; }
+  .top-right .btn-sm { padding: 0 9px; }
+  .account-pill { padding: 0 6px 0 3px; }
+}
+@media (max-width: 380px) {
+  .hist-btn { width: 26px; }
+  .month-nav .year-text { min-width: 42px; font-size: calc(19px * var(--k)); }
+  .today-link { font-size: 12px; padding: 0 2px; }
 }
