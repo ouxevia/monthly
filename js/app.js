@@ -716,8 +716,8 @@ function viewLogin() {
   }
   return `<main class="login">
     <section class="login-intro">
-      <h1 class="login-title">Exam Monthly</h1>
-      <p class="login-sub">시험 계획을 먼슬리 캘린더에.<br>아이패드, 노트북, 폰 어디서든 같은 계획을 이어서.</p>
+      <h1 class="login-title">My Month</h1>
+      <p class="login-sub">할 일과 일정을 먼슬리 캘린더에.<br>아이패드, 노트북, 폰 어디서든 같은 계획을 이어서.</p>
       <div class="login-mini" aria-hidden="true">${cells}</div>
     </section>
     <section class="card login-card">
@@ -1079,7 +1079,7 @@ function viewConflict() {
   if (!c) return '';
   const server = fromRemote(c.remote);
   const local = normalize(toPlain(c.local));
-  const count = (d) => `할 일 ${d.todos.length}개 · 시험 ${d.exams.length}개 · 문제집 ${d.books.length}개`;
+  const count = (d) => `할 일 ${d.todos.length}개 · D-day ${d.exams.length}개 · 세부일정 ${d.books.length}개`;
   const device = c.kind === 'device';
   const title = device ? '기기 저장 모드에서 쓰던 내용이 있어요' : '인터넷이 끊긴 동안 바꾼 내용이 있어요';
   const desc = device
@@ -1129,18 +1129,18 @@ function viewTodoModal() {
     const c = colorOf(s.id);
     const on = dr.subjectId === s.id;
     return `<button class="pill" data-act="pick-subject" data-id="${s.id}" aria-pressed="${on}" style="background:${on ? c[2] : c[1]};border-color:${on ? c[2] : c[1]};color:${inkOn(on ? c[2] : c[1])}">${esc(s.name)}</button>`;
-  }).join('') || '<span class="hint">등록된 과목이 없어요. 카테고리에서 과목을 추가하세요.</span>';
+  }).join('') || '<span class="hint">등록된 일정이 없어요. 카테고리에서 일정을 추가하세요.</span>';
 
   let books;
   if (!dr.subjectId) {
-    books = '<div class="notice">먼저 Category1에서 과목을 선택하면, 그 과목의 문제집만 보여요.</div>';
+    books = '<div class="notice">먼저 Category1에서 일정을 선택하면, 그 일정의 세부일정만 보여요.</div>';
   } else {
     const list = S.data.books.filter((b) => b.subjectId === dr.subjectId);
     books = '<div class="row-wrap">' + list.map((b) => {
       const on = dr.bookId === b.id;
       return `<button class="tag-btn${on ? ' on' : ''}" data-act="pick-book" data-id="${b.id}" aria-pressed="${on}" style="${on ? `background:${col[1]};border-color:${col[2]};color:${inkOn(col[1])}` : ''}">${esc(b.name)}</button>`;
-    }).join('') + (list.length ? '' : '<span class="hint">이 과목에 등록된 문제집이 없어요.</span>') +
-      '<button class="link-btn" data-act="open-category-from-todo">+ 문제집 관리</button></div>';
+    }).join('') + (list.length ? '' : '<span class="hint">이 일정에 등록된 세부일정이 없어요.</span>') +
+      '<button class="link-btn" data-act="open-category-from-todo">+ 세부일정 관리</button></div>';
   }
 
   const book = byId(S.data.books, dr.bookId);
@@ -1152,20 +1152,20 @@ function viewTodoModal() {
         <input id="todo-date" class="field" type="date" value="${dr.date}" data-input="draft-date" style="width:200px">
       </div>
       <div class="field-group">
-        <span class="field-label">Category1 · 과목</span>
+        <span class="field-label">Category1 · 일정 / 과목</span>
         <div class="row-wrap">${subjects}</div>
       </div>
       <div class="field-group">
-        <span class="field-label">Category2 · 문제집</span>
+        <span class="field-label">Category2 · 세부일정 / 문제집</span>
         ${books}
       </div>
       <div class="field-group">
         <label class="field-label" for="todo-text">내용 · 범위</label>
-        <input id="todo-text" class="field" value="${esc(dr.text)}" data-input="draft-text" placeholder="예: p.258 ~ 279 / 06단원 / 38~40번" maxlength="80" autocomplete="off">
+        <input id="todo-text" class="field" value="${esc(dr.text)}" data-input="draft-text" placeholder="예: 보고서 초안 / 30분 운동 / p.20~45" maxlength="80" autocomplete="off">
       </div>
       <div class="preview-row">
         <span class="field-label">미리보기</span>
-        <span class="preview-chip" style="background:${chipBg(dr)};color:${inkOn(chipBg(dr))}"><b>${esc(book ? book.name : '')}</b> <span data-preview-text>${esc(dr.text || (dr.subjectId ? '' : '과목을 선택하세요'))}</span></span>
+        <span class="preview-chip" style="background:${chipBg(dr)};color:${inkOn(chipBg(dr))}"><b>${esc(book ? book.name : '')}</b> <span data-preview-text>${esc(dr.text || (dr.subjectId ? '' : '일정을 선택하세요'))}</span></span>
         <span class="sp"></span>
         <button class="btn btn-sm" data-act="toggle-draft-done">${dr.done ? '완료 취소' : '완료로 표시'}</button>
       </div>
@@ -1173,7 +1173,7 @@ function viewTodoModal() {
     <div class="modal-foot">
       ${dr.id ? '<button class="btn danger" data-act="delete-todo" style="margin-right:auto">삭제</button>' : ''}
       <button class="btn" data-act="close-modal">취소</button>
-      <button class="btn btn-primary" data-act="save-todo"${dr.subjectId ? '' : ' disabled title="과목을 먼저 선택하세요"'}>저장</button>
+      <button class="btn btn-primary" data-act="save-todo"${dr.subjectId ? '' : ' disabled title="일정을 먼저 선택하세요"'}>저장</button>
     </div>
   </div>`;
 }
@@ -1181,10 +1181,10 @@ function viewTodoModal() {
 // ---------------------------------------------------------------- 환경설정
 
 const SET_TABS = [
-  ['exam', '시험일', 'exam'],
+  ['exam', 'D-day', 'exam'],
   ['category', '카테고리', 'tag'],
   ['style', '캘린더 스타일', 'layout'],
-  ['color', '과목 색상', 'palette'],
+  ['color', '색상', 'palette'],
   ['font', '글씨체', 'font'],
   ['display', '화면 표시', 'eye'],
   ['export', 'A4 저장 · 인쇄', 'printer'],
@@ -1268,11 +1268,11 @@ function examBody() {
       <span class="exam-info"><span>${esc(e.name)}</span><span class="hint small">${dateLabel(e.date)}</span></span>
       <button class="icon-btn" data-act="delete-exam" data-id="${e.id}" aria-label="${esc(e.name)} 삭제">${ICON.x}</button>
     </div>`;
-  }).join('') || '<div class="notice">아직 등록된 시험이 없어요. 아래에서 시험을 추가하면 캘린더에 D-day가 표시돼요.</div>';
-  return `<p class="hint small" style="margin:0">캘린더의 각 날짜에는 그 날 이후 가장 가까운 시험의 D-day가 표시돼요.</p>
+  }).join('') || '<div class="notice">아직 등록된 D-day가 없어요. 아래에서 일정을 추가하면 캘린더에 D-day가 표시돼요.</div>';
+  return `<p class="hint small" style="margin:0">캘린더의 각 날짜에는 그 날 이후 가장 가까운 일정의 D-day가 표시돼요.</p>
     <div class="exam-list">${rows}</div>
     <div class="exam-add">
-      <div class="field-group grow"><label class="field-label" for="exam-name">시험 이름</label><input id="exam-name" class="field" data-enter="add-exam" placeholder="예: 2학기 기말고사" maxlength="30" autocomplete="off"></div>
+      <div class="field-group grow"><label class="field-label" for="exam-name">일정 이름</label><input id="exam-name" class="field" data-enter="add-exam" placeholder="예: 프로젝트 마감 / 기말고사 / 여행" maxlength="30" autocomplete="off"></div>
       <div class="field-group"><label class="field-label" for="exam-date">날짜</label><input id="exam-date" class="field" type="date" data-enter="add-exam"></div>
       <button class="btn" data-act="add-exam">추가</button>
     </div>`;
@@ -1295,17 +1295,17 @@ function categoryBody() {
     return `<div class="list-row${s.id === subId ? ' sel' : ''}">
       <button class="list-main" data-act="cat-select" data-id="${s.id}" aria-pressed="${s.id === subId}">
         <span class="sw" style="background:${c[1]}"></span><span class="sw sw-overlap" style="background:${c[2]}"></span>
-        <span class="list-name">${esc(s.name)}</span><span class="hint small">문제집 ${n}</span>
+        <span class="list-name">${esc(s.name)}</span><span class="hint small">세부일정 ${n}</span>
       </button>
       ${moveBtns('subjects', s, S.data.subjects)}
       <button class="icon-btn sm" data-act="rename-subject" data-id="${s.id}" aria-label="${esc(s.name)} 이름 바꾸기">${ICON.pencil}</button>
       <button class="icon-btn sm" data-act="delete-subject" data-id="${s.id}" aria-label="${esc(s.name)} 삭제">${ICON.x}</button>
     </div>`;
-  }).join('') || '<span class="hint">아직 과목이 없어요.</span>';
+  }).join('') || '<span class="hint">아직 일정이 없어요.</span>';
 
   let right;
   if (!sub) {
-    right = '<span class="hint">왼쪽에서 과목을 고르면, 그 과목의 문제집을 등록할 수 있어요.</span>';
+    right = '<span class="hint">왼쪽에서 일정을 고르면, 그 일정의 세부일정을 등록할 수 있어요.</span>';
   } else {
     const swatches = th.c.map((c, i) => `<button class="color-sw${sub.color % th.c.length === i ? ' on' : ''}" data-act="subject-color" data-i="${i}" style="background:${c[1]};border-color:${c[2]}" aria-label="${esc(c[0])} 색으로 바꾸기" title="${esc(c[0])}"></button>`).join('');
     const subBooks = S.data.books.filter((b) => b.subjectId === sub.id);
@@ -1314,24 +1314,24 @@ function categoryBody() {
         ${moveBtns('books', b, subBooks)}
         <button class="icon-btn sm" data-act="rename-book" data-id="${b.id}" aria-label="${esc(b.name)} 이름 바꾸기">${ICON.pencil}</button>
         <button class="icon-btn sm" data-act="delete-book" data-id="${b.id}" aria-label="${esc(b.name)} 삭제">${ICON.x}</button>
-      </div>`).join('') || '<span class="hint">아직 등록된 문제집이 없어요.</span>';
-    right = `<div class="color-row"><span class="hint small">과목 색</span>${swatches}</div>${books}`;
+      </div>`).join('') || '<span class="hint">아직 등록된 세부일정이 없어요.</span>';
+    right = `<div class="color-row"><span class="hint small">색</span>${swatches}</div>${books}`;
   }
   const tint = sub ? colorOf(sub.id)[1] + (isNight() ? '22' : '55') : 'var(--soft)';
   return `<div class="cat-grid">
       <section class="cat-panel">
-        <h3>Category1 <span class="hint small">과목 · 색은 과목 색상 테마에서 자동 지정</span></h3>
+        <h3>Category1 <span class="hint small">일정 / 과목</span></h3>
         <div class="cat-list">${subjects}</div>
         <div class="add-row">
-          <input class="field" data-enter="add-subject" id="new-subject" placeholder="새 과목 (예: 한국사)" maxlength="20" aria-label="새 과목 이름" autocomplete="off">
+          <input class="field" data-enter="add-subject" id="new-subject" placeholder="새 일정 (예: 운동)" maxlength="20" aria-label="새 일정 이름" autocomplete="off">
           <button class="btn" data-act="add-subject">추가</button>
         </div>
       </section>
       <section class="cat-panel" style="background:${tint}">
-        <h3>Category2 <span class="hint small">${sub ? esc(sub.name) + '의 문제집' : '과목을 먼저 선택하세요'}</span></h3>
+        <h3>Category2 <span class="hint small">${sub ? esc(sub.name) + '의 세부일정 / 문제집' : '세부일정 / 문제집 · 일정을 먼저 선택하세요'}</span></h3>
         <div class="cat-list">${right}</div>
         <div class="add-row">
-          <input class="field" data-enter="add-book" id="new-book" placeholder="새 문제집 (예: 마더텅)" maxlength="30" aria-label="새 문제집 이름" autocomplete="off"${sub ? '' : ' disabled'}>
+          <input class="field" data-enter="add-book" id="new-book" placeholder="새 세부일정 (예: 헬스)" maxlength="30" aria-label="새 세부일정 이름" autocomplete="off"${sub ? '' : ' disabled'}>
           <button class="btn" data-act="add-book"${sub ? '' : ' disabled'}>추가</button>
         </div>
       </section>
@@ -1350,7 +1350,7 @@ function styleBody() {
     const on = p.styleId === s.id;
     return `<button class="pick-card${on ? ' on' : ''}" data-act="pick-style" data-id="${s.id}" aria-pressed="${on}">
       <span class="style-preview st-${s.id}" style="color:${s.ink}">
-        <span class="sp-title">May <span>GOAL : 중간고사</span></span>
+        <span class="sp-title">May <span>GOAL : 목표</span></span>
         <span class="mini-cal" style="border:${s.outer};border-radius:${s.radius}px;background:${s.cellBg}">${mini}</span>
       </span>
       <span class="pick-name">${esc(s.name)} <small>${esc(s.desc)}</small>${pickMark(on, settings().styleId === s.id)}</span>
@@ -1366,7 +1366,7 @@ function colorBody() {
     const sw = t.c.map((c) => `<span class="swatch-pair" title="${esc(c[0])}"><i style="background:${c[1]}"></i><i style="background:${c[2]}"></i></span>`).join('');
     return `<div class="pick-card pal-card${on ? ' on' : ''}">
       <button class="pal-pick" data-act="pick-theme" data-id="${t.id}" aria-pressed="${on}">
-        <span class="pick-name">${esc(t.name)} <small>${esc(t.desc)}</small>${pickMark(on, settings().themeId === t.id)}</span>
+        <span class="pick-name">${esc(t.name)}${pickMark(on, settings().themeId === t.id)}</span>
         <span class="swatch-row" style="grid-template-columns:repeat(${Math.max(10, t.c.length)}, minmax(0, 1fr))">${sw}</span>
       </button>
       ${custom ? `<div class="pal-tools"><button class="btn btn-sm" data-act="pal-edit" data-id="${t.id}">${ICON.pencil}편집</button><button class="btn btn-sm danger" data-act="pal-delete" data-id="${t.id}">삭제</button></div>`
@@ -1396,11 +1396,11 @@ function paletteEditor() {
   }).join('');
   return `<div class="pal-editor">
     <div class="pal-top">
-      <div class="field-group grow"><label class="field-label" for="pal-name">팔레트 이름</label><input id="pal-name" class="field" data-input="pal-name" value="${esc(ed.name)}" maxlength="20" placeholder="예: 내 시험기간 색"></div>
+      <div class="field-group grow"><label class="field-label" for="pal-name">팔레트 이름</label><input id="pal-name" class="field" data-input="pal-name" value="${esc(ed.name)}" maxlength="20" placeholder="예: 내가 좋아하는 색"></div>
       <div class="field-group"><label class="field-label" for="pal-from">기존 테마 색 불러오기</label>
         <select id="pal-from" class="field" data-input="pal-from"><option value="">선택…</option>${presets}</select></div>
     </div>
-    <p class="hint small" style="margin:0">색을 고르면 미완료(연한 색)와 완료(짙은 색)가 자동으로 만들어져요. 과목은 위에서부터 순서대로 색을 받아요.</p>
+    <p class="hint small" style="margin:0">색을 고르면 미완료(연한 색)와 완료(짙은 색)가 자동으로 만들어져요. 일정은 위에서부터 순서대로 색을 받아요.</p>
     <div class="pal-list">${rows}</div>
     <button class="btn pal-add" data-act="pal-add"${ed.colors.length >= 16 ? ' disabled' : ''}>${ICON.plus}색 추가 <small>(${ed.colors.length}/16)</small></button>
   </div>`;
@@ -1412,12 +1412,12 @@ function fontPreview(f, p, th) {
   const state = f.custom ? fontState[f.id] : 'ready';
   const note = state === 'error' ? ' · 불러오지 못했어요 (인터넷 연결 후 다시 열어 주세요)' : state !== 'ready' ? ' · 불러오는 중…' : '';
   return `<span class="pick-name" style="font-size:${Math.round(20 * k)}px">${esc(f.name)} <small style="font-size:${Math.round(12 * k)}px">${esc(f.desc + note)}</small>${pickMark(on, settings().fontId === f.id)}</span>
-      <span style="font-size:${Math.round(22 * k)}px">May · GOAL : 1학기 중간고사 대비</span>
+      <span style="font-size:${Math.round(22 * k)}px">May · GOAL : 이번 달 목표 달성</span>
       <span class="row-wrap">
         <span style="font-size:${Math.round(16 * k)}px;font-weight:700">D-12</span>
-        <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${tc(th, 0)[1]};color:${inkOn(tc(th, 0)[1])}"><b>쎈</b> 06단원</span>
-        <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${tc(th, 1)[2]};color:${inkOn(tc(th, 1)[2])}"><b>RPM</b> p.109~119</span>
-        <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${tc(th, 2)[1]};color:${inkOn(tc(th, 2)[1])}"><b>모의고사</b> 38~40번</span>
+        <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${tc(th, 0)[1]};color:${inkOn(tc(th, 0)[1])}"><b>독서</b> 30쪽</span>
+        <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${tc(th, 1)[2]};color:${inkOn(tc(th, 1)[2])}"><b>운동</b> 1시간</span>
+        <span class="sample-chip" style="font-size:${Math.round(12 * k)}px;background:${tc(th, 2)[1]};color:${inkOn(tc(th, 2)[1])}"><b>보고서</b> 초안</span>
       </span>`;
 }
 
@@ -1506,10 +1506,10 @@ function displayBody() {
     </button>`;
   return `<div class="switch-list">
     ${sw('toggle-goal', p.showGoal, 'GOAL (이번 달 목표) 표시', '끄면 캘린더 위의 GOAL 칸과 인쇄용 A4에서 목표가 숨겨져요. 적어 둔 목표는 지워지지 않아요.')}
-    ${sw('toggle-abbr', p.showAbbr, '과목 약자 표시', '할 일 앞에 (수) (영)처럼 과목 첫 글자를 붙여요. 약자는 환경설정 → 카테고리에서 과목 이름 옆 연필을 눌러 바꿀 수 있어요.')}
-    ${sw('toggle-week-mode', p.colorMode === 'week', '주간 체크 모드', '할 일은 모두 회색으로, 체크하면 체크한 날이 속한 주의 색으로 칠해져요. 지난주 할 일을 이번 주에 끝내면 이번 주 색이 돼서 언제 했는지 한눈에 보여요. 주마다 색은 지금 고른 과목 색상 테마에서 가져와요.')}
-    ${sw('toggle-sort-subject', p.sortBySubject, '과목 순서대로 정렬', '하루 칸 안의 할 일을 카테고리의 과목 순서(국어 → 수학 → …)대로 모아서 보여 줘요. 같은 과목 안에서는 직접 끌어서 바꾼 순서를 따라요.')}
-    ${sw('toggle-night', night, '나이트모드', '밤 공부용 어두운 화면 · 팝업까지 어두워져요. 끄면 원래 쓰던 캘린더 스타일로 돌아가요.')}
+    ${sw('toggle-abbr', p.showAbbr, '일정 약자 표시', '할 일 앞에 (운) (업)처럼 일정 첫 글자를 붙여요. 약자는 환경설정 → 카테고리에서 일정 이름 옆 연필을 눌러 바꿀 수 있어요.')}
+    ${sw('toggle-week-mode', p.colorMode === 'week', '주간 체크 모드', '할 일은 모두 회색으로, 체크하면 체크한 날이 속한 주의 색으로 칠해져요. 지난주 할 일을 이번 주에 끝내면 이번 주 색이 돼서 언제 했는지 한눈에 보여요. 주마다 색은 지금 고른 색상 팔레트에서 가져와요.')}
+    ${sw('toggle-sort-subject', p.sortBySubject, '일정 순서대로 정렬', '하루 칸 안의 할 일을 카테고리의 일정 순서(위에서부터)대로 모아서 보여 줘요. 같은 일정 안에서는 직접 끌어서 바꾼 순서를 따라요.')}
+    ${sw('toggle-night', night, '나이트모드', '밤에 보기 편한 어두운 화면 · 팝업까지 어두워져요. 끄면 원래 쓰던 캘린더 스타일로 돌아가요.')}
   </div>`;
 }
 
@@ -1579,7 +1579,7 @@ function exportBody() {
   const seg = [['color', '컬러'], ['mono', '글씨만 (흑백)']].map(([id, name]) => `<button class="tab${mode === id ? ' on' : ''}" role="tab" aria-selected="${mode === id}" data-act="export-mode" data-mode="${id}">${name}</button>`).join('');
   return `<div class="tabs export-tabs" role="tablist">${seg}</div>
     ${preview}
-    <p class="hint small" style="margin:0">${mode === 'mono' ? '형광펜(색 배경) 없이 글씨만 흑백으로 뽑아요. 과목은 (수) (영)처럼 약자로 구분돼요. ' : ''}${y}년 ${m}월을 A4 가로 한 장으로 만들어요. 칸에 다 안 들어가는 할 일은 "+N개 더"로 표시돼요.${isNight() ? ' 나이트모드는 잉크 절약을 위해 흰 배경으로 저장돼요.' : ''}</p>`;
+    <p class="hint small" style="margin:0">${mode === 'mono' ? '형광펜(색 배경) 없이 글씨만 흑백으로 뽑아요. 일정은 (운) (업)처럼 약자로 구분돼요. ' : ''}${y}년 ${m}월을 A4 가로 한 장으로 만들어요. 칸에 다 안 들어가는 할 일은 "+N개 더"로 표시돼요.${isNight() ? ' 나이트모드는 잉크 절약을 위해 흰 배경으로 저장돼요.' : ''}</p>`;
 }
 
 function viewAccountModal() {
@@ -1601,7 +1601,7 @@ function viewAccountModal() {
     </div>
     <div class="sync-box">
       <span class="sync-line"><span class="sync-dot" data-sync-dot style="background:${syncDot()}"></span><span data-sync-text="long">${esc(syncLabel(false))}</span></span>
-      <span class="hint small">${offlineCopy ? '지금 고치는 내용은 이 기기에 저장되고, 인터넷이 다시 연결되면 서버에 덮어쓸지 물어봐요.' : cloud ? '할 일, 카테고리, 시험일, 테마 설정이 모든 기기에 자동 저장돼요.' : 'Supabase를 설정하면 이메일 로그인으로 여러 기기에서 같은 플래너를 쓸 수 있어요.'}</span>
+      <span class="hint small">${offlineCopy ? '지금 고치는 내용은 이 기기에 저장되고, 인터넷이 다시 연결되면 서버에 덮어쓸지 물어봐요.' : cloud ? '할 일, 카테고리, D-day, 테마 설정이 모든 기기에 자동 저장돼요.' : 'Supabase를 설정하면 이메일 로그인으로 여러 기기에서 같은 플래너를 쓸 수 있어요.'}</span>
       ${cloud ? '<button class="btn" data-act="sync-now">지금 동기화</button>' : ''}
     </div>
     ${cloud && devices ? `<div class="field-group"><span class="field-label">로그인된 기기</span>${devices}</div>` : ''}
@@ -1856,10 +1856,10 @@ const actions = {
   },
   'rename-subject': (el) => {
     const s = byId(S.data.subjects, el.dataset.id);
-    const name = s && prompt('과목 이름', s.name);
+    const name = s && prompt('일정 이름', s.name);
     if (!name || !name.trim()) return;
     s.name = name.trim();
-    const ab = prompt('할 일 앞에 붙는 과목 약자 (비워 두면 첫 글자)', s.abbr || '');
+    const ab = prompt('할 일 앞에 붙는 일정 약자 (비워 두면 첫 글자)', s.abbr || '');
     if (ab !== null) {
       const v = ab.trim().replace(/[()]/g, '').slice(0, 3);
       if (v) s.abbr = v; else delete s.abbr;
@@ -1885,7 +1885,7 @@ const actions = {
     const s = byId(S.data.subjects, el.dataset.id);
     if (!s) return;
     const nTodo = S.data.todos.filter((t) => t.subjectId === s.id).length;
-    const msg = `'${s.name}' 과목을 삭제할까요?\n이 과목의 문제집도 함께 삭제돼요.` + (nTodo ? `\n이 과목으로 등록된 할 일 ${nTodo}개도 함께 삭제돼요.` : '');
+    const msg = `'${s.name}' 일정을 삭제할까요?\n이 일정의 세부일정도 함께 삭제돼요.` + (nTodo ? `\n이 일정으로 등록된 할 일 ${nTodo}개도 함께 삭제돼요.` : '');
     if (!confirm(msg)) return;
     S.data.subjects = S.data.subjects.filter((x) => x.id !== s.id);
     S.data.books = S.data.books.filter((b) => b.subjectId !== s.id);
@@ -1911,14 +1911,14 @@ const actions = {
   },
   'rename-book': (el) => {
     const b = byId(S.data.books, el.dataset.id);
-    const name = b && prompt('문제집 이름', b.name);
+    const name = b && prompt('세부일정 이름', b.name);
     if (!name || !name.trim()) return;
     b.name = name.trim();
     commit();
   },
   'delete-book': (el) => {
     const b = byId(S.data.books, el.dataset.id);
-    if (!b || !confirm(`'${b.name}' 문제집을 삭제할까요?\n이 문제집으로 등록된 할 일은 과목만 남아요.`)) return;
+    if (!b || !confirm(`'${b.name}' 세부일정을 삭제할까요?\n이 세부일정으로 등록된 할 일은 일정만 남아요.`)) return;
     S.data.books = S.data.books.filter((x) => x.id !== b.id);
     S.data.todos.forEach((t) => { if (t.bookId === b.id) t.bookId = null; });
     if (S.ui.draft && S.ui.draft.bookId === b.id) S.ui.draft.bookId = null;
@@ -2250,7 +2250,7 @@ function bindEvents() {
     } else if (kind === 'draft-text' && S.ui.draft) {
       S.ui.draft.text = el.value;
       const p = document.querySelector('[data-preview-text]');
-      if (p) p.textContent = el.value || (S.ui.draft.subjectId ? '' : '과목을 선택하세요');
+      if (p) p.textContent = el.value || (S.ui.draft.subjectId ? '' : '일정을 선택하세요');
     }
   });
 
