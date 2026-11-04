@@ -46,6 +46,7 @@ const RESTORE_MS = 5 * 60 * 1000;
 const HISTORY_MAX = 60;
 // 폰처럼 좁은 화면: 칸에는 색 막대만, 날짜를 누르면 아래에 그날 할 일 목록
 const COMPACT_MQ = window.matchMedia('(max-width: 700px)');
+const TOUR_KEY = 'exam-monthly:tour-done'; // 처음 쓸 때 튜토리얼을 이 기기에서 봤거나 건너뜀
 const isCompact = () => COMPACT_MQ.matches;
 const $app = document.getElementById('app');
 
@@ -640,7 +641,11 @@ function render() {
   let html;
   if (S.phase === 'boot' || S.phase === 'loading') html = `<div class="boot">${S.phase === 'loading' ? '플래너를 불러오는 중…' : '불러오는 중…'}</div>`;
   else if (S.phase === 'login') html = viewLogin();
-  else html = viewApp() + viewModal() + viewConflict();
+  else {
+    // 처음 쓰는 기기면 캘린더가 보일 때 튜토리얼 시작 (다른 창이 떠 있으면 닫힌 뒤에)
+    if (!S.tour && !S.ui.modal && !S.conflict && store.get(TOUR_KEY) !== '1') S.tour = { step: 0 };
+    html = viewApp() + viewModal() + viewConflict() + viewTour();
+  }
   $app.innerHTML = html;
 
   window.scrollTo(0, scrollY);
@@ -649,6 +654,7 @@ function render() {
   const mb = document.querySelector('.modal-scroll');
   if (mb) mb.scrollTop = modalScrollY;
   keepTabVisible(setNavX);
+  placeTour();
   fitCalendar();
   Object.keys(cellScroll).forEach((k) => {
     const el = document.querySelector(`.cell[data-date="${k}"] .todos`);
@@ -1070,6 +1076,84 @@ function viewModal() {
   else if (m === 'settings') inner = viewSettingsModal();
   else if (m === 'account') inner = viewAccountModal();
   return `<div class="overlay${m === 'account' ? ' overlay-top' : ''}" data-act="overlay">${inner}</div>`;
+}
+
+// ---------------------------------------------------------------- 처음 쓸 때 튜토리얼 (8단계)
+//
+// 화면의 실제 버튼을 밝게 비추고(target) 옆에 설명 카드를 띄움. 비출 곳이 없으면 가운데 카드만.
+const TOUR = [
+  { title: 'My Month에 오신 걸 환영해요', body: '할 일과 일정을 한 달 캘린더에 정리하는 플래너예요. 꼭 알아 두면 좋은 기능 8가지를 차례로 보여 드릴게요.' },
+  { target: () => (isCompact() ? '.day-panel [data-act="open-add"]' : '.cell.today .add-btn, .cell[data-date] .add-btn'), title: '할 일 추가', body: () => (isCompact()
+    ? '날짜를 누르면 아래에 그날 할 일이 보여요. "+ 할 일"을 눌러 추가하세요.'
+    : '날짜 칸 오른쪽 위 +를 누르면 할 일을 추가해요.') + ' 일정(카테고리)을 고르면 색이 자동으로 정해져요.' },
+  { target: () => (isCompact() ? '.day-panel .chip, .day-panel' : '.cal .chip, .cell.today'), title: '완료 체크 · 고치기', body: '할 일 앞 동그라미를 누르면 완료로 표시되고 색이 진해져요. 글자를 누르면 내용을 고치거나 날짜를 바꾸거나 지울 수 있어요.' },
+  { target: () => (isCompact() ? '.day-panel' : '.cal-row:has(.today), .cal'), title: '옮기기 · 순서 바꾸기', body: '할 일을 끌어서 다른 날짜로 옮기거나, 같은 날 안에서 위아래 순서를 바꿀 수 있어요. 폰 · 패드에서는 길게 누른 채로 끌어요.' },
+  { target: () => '.month-nav', title: '달 넘기기', body: '‹ › 화살표로 이전 · 다음 달로, "오늘"로 이번 달로 돌아와요. 캘린더를 옆으로 밀어도 넘어가요.' },
+  { target: () => '.history-btns', title: '실행 취소 · 다시 실행', body: '실수했을 땐 ↶로 되돌리고 ↷로 다시 실행해요. PC에서는 Ctrl+Z · Ctrl+Shift+Z도 돼요.' },
+  { target: () => '[data-act="open-settings"]', title: '환경설정', body: 'D-day 일정, 카테고리(일정 · 세부일정), 캘린더 스타일, 색상 팔레트, 글씨체, 주간 체크 모드, A4 저장 · 인쇄가 모두 여기 있어요.' },
+  { target: () => '.account-pill', title: '계정 · 동기화', body: '로그인하면 폰 · 패드 · 노트북에서 같은 플래너가 실시간으로 맞춰져요. 인터넷이 끊겨도 이 기기에 저장되고, 백업 파일도 여기서 만들 수 있어요.' },
+];
+const tourText = (v) => (typeof v === 'function' ? v() : v);
+
+function viewTour() {
+  const t = S.tour;
+  if (!t || S.phase !== 'app' || S.ui.modal || S.conflict) return '';
+  const step = TOUR[t.step];
+  const last = t.step === TOUR.length - 1;
+  const dots = TOUR.map((_, i) => `<i class="${i === t.step ? 'on' : ''}"></i>`).join('');
+  return `<div class="tour" role="dialog" aria-modal="true" aria-labelledby="tour-title">
+    <div class="tour-hole"></div>
+    <div class="tour-card">
+      <div class="tour-top"><span class="tour-count">${t.step + 1} / ${TOUR.length}</span>${last ? '' : '<button class="link-btn tour-skip" data-act="tour-skip">건너뛰기</button>'}</div>
+      <h2 id="tour-title" class="tour-title">${esc(step.title)}</h2>
+      <p class="tour-body">${esc(tourText(step.body))}</p>
+      <div class="tour-foot">
+        <span class="tour-dots" aria-hidden="true">${dots}</span>
+        ${t.step ? '<button class="btn btn-sm" data-act="tour-prev">이전</button>' : ''}
+        <button class="btn btn-sm btn-primary" data-act="tour-next">${last ? '시작하기' : '다음'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// 그린 뒤: 비출 버튼 위치에 구멍을 내고, 설명 카드를 그 아래(공간이 없으면 위)에 둠
+function placeTour() {
+  const tour = document.querySelector('.tour');
+  if (!tour) return;
+  const step = TOUR[S.tour.step];
+  const hole = tour.querySelector('.tour-hole');
+  const card = tour.querySelector('.tour-card');
+  const sel = step.target && step.target();
+  let el = null;
+  // 쉼표로 적은 후보를 앞에서부터 차례로: 화면에 보이는 첫 번째를 비춤
+  const visible = (x) => x.offsetParent !== null && x.getBoundingClientRect().width > 0;
+  if (sel) for (const part of sel.split(',')) { el = [...document.querySelectorAll(part)].find(visible) || null; if (el) break; }
+  const vw = window.innerWidth, vh = window.innerHeight, M = 12;
+  card.style.left = card.style.top = card.style.bottom = '';
+  if (!el) {
+    tour.classList.add('center');
+    hole.style.display = 'none';
+    return;
+  }
+  tour.classList.remove('center');
+  let r = el.getBoundingClientRect();
+  if (r.top < 0 || r.bottom > vh) { el.scrollIntoView({ block: 'center' }); r = el.getBoundingClientRect(); }
+  const pad = 6;
+  const top = Math.max(4, r.top - pad), left = Math.max(4, r.left - pad);
+  const w = Math.min(vw - 8, r.width + pad * 2), h = Math.min(vh - 8, r.height + pad * 2);
+  Object.assign(hole.style, { display: 'block', top: top + 'px', left: left + 'px', width: w + 'px', height: h + 'px' });
+  const cw = card.offsetWidth, ch = card.offsetHeight;
+  const below = top + h + M + ch <= vh - M;
+  const above = top - M - ch >= M;
+  let y = below ? top + h + M : above ? top - M - ch : Math.max(M, vh - ch - M); // 크게 비출 때는 화면 아래쪽에 겹쳐 둠
+  let x = Math.min(Math.max(M, r.left + r.width / 2 - cw / 2), vw - cw - M);
+  card.style.left = x + 'px';
+  card.style.top = y + 'px';
+}
+function endTour() {
+  S.tour = null;
+  store.set(TOUR_KEY, '1');
+  render();
 }
 
 // 오프라인에서 바꾼 내용 / 기기 저장 모드 내용을 서버에 덮어쓸지 고르기 (닫을 수 없음: 꼭 골라야 함)
@@ -1509,7 +1593,8 @@ function displayBody() {
     ${sw('toggle-week-mode', p.colorMode === 'week', '주간 체크 모드', '할 일은 모두 회색으로, 체크하면 체크한 날이 속한 주의 색으로 칠해져요. 지난주 할 일을 이번 주에 끝내면 이번 주 색이 돼서 언제 했는지 한눈에 보여요. 주마다 색은 지금 고른 색상 팔레트에서 가져와요.')}
     ${sw('toggle-sort-subject', p.sortBySubject, '일정 순서대로 정렬', '하루 칸 안의 할 일을 카테고리의 일정 순서(위에서부터)대로 모아서 보여 줘요. 같은 일정 안에서는 직접 끌어서 바꾼 순서를 따라요.')}
     ${sw('toggle-night', night, '나이트모드', '밤에 보기 편한 어두운 화면 · 팝업까지 어두워져요. 끄면 원래 쓰던 캘린더 스타일로 돌아가요.')}
-  </div>`;
+  </div>
+  <button class="btn btn-sm tour-replay" data-act="tour-replay">처음 쓰는 법 다시 보기 (튜토리얼)</button>`;
 }
 
 function contactState() {
@@ -1679,6 +1764,10 @@ const actions = {
   'restore-before': () => switchRestore('before'),
   'restore-after': () => switchRestore('after'),
   'restore-close': () => { S.restore = null; saveRestore(); render(); },
+  'tour-next': () => { if (!S.tour) return; if (S.tour.step >= TOUR.length - 1) endTour(); else { S.tour.step += 1; render(); } },
+  'tour-prev': () => { if (S.tour && S.tour.step > 0) { S.tour.step -= 1; render(); } },
+  'tour-skip': () => endTour(),
+  'tour-replay': () => { closeModal(); S.tour = { step: 0 }; render(); },
   'go-login': () => {
     S.fromDevice = S.offline || S.scope === 'local';
     S.offline = false;
@@ -2263,6 +2352,11 @@ function bindEvents() {
   });
 
   document.addEventListener('keydown', (e) => {
+    if (S.tour && document.querySelector('.tour')) {
+      if (e.key === 'Escape') { endTour(); return; }
+      if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); actions['tour-next'](); return; }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); actions['tour-prev'](); return; }
+    }
     if (e.key === 'Escape' && S.ui.modal) { actions['close-modal'](); return; }
     const typing = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
     if (S.phase === 'app' && !S.ui.modal && !typing && (e.ctrlKey || e.metaKey) && !e.altKey) {
@@ -2295,7 +2389,7 @@ function bindEvents() {
   bindDrag();
   bindSwipe();
   let resizeTimer = null;
-  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(fitCalendar, 120); });
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { fitCalendar(); placeTour(); }, 120); });
   const onMq = () => { if (S.phase === 'app') renderSoft(); };
   if (COMPACT_MQ.addEventListener) COMPACT_MQ.addEventListener('change', onMq); else COMPACT_MQ.addListener(onMq);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitCalendar);
