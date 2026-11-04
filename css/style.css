@@ -1,5 +1,5 @@
 /* ============================================================
-   Exam Monthly · 시험 먼슬리 플래너
+   My Month · 먼슬리 플래너
    색 · 선 · 글씨체 값은 js/app.js의 applyTheme()가 CSS 변수로 넣어줍니다.
    ============================================================ */
 
@@ -129,18 +129,12 @@ body.dark {
 .login-card { width: 420px; max-width: 100%; padding: 40px 36px 32px; display: flex; flex-direction: column; gap: 18px; }
 .login-card h2 { margin: 0; font-size: calc(22px * var(--k)); text-align: center; font-weight: 400; }
 .login-card .hint { margin: 0; line-height: 1.6; }
-.g-mark { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--mline); display: inline-flex; align-items: center; justify-content: center; font-size: calc(15px * var(--k)); font-weight: 700; font-family: 'Gowun Dodum', sans-serif; }
 .login-foot { display: flex; align-items: center; justify-content: center; gap: 8px; border-top: 1px solid var(--mline); padding-top: 16px; font-size: calc(13px * var(--k)); color: var(--label); }
 
 /* ---------- 메인 ---------- */
 .page { max-width: 1440px; margin: 0 auto; padding: 22px 56px 24px; display: flex; flex-direction: column; gap: 12px; }
 .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
-.top-left { display: flex; flex-direction: column; gap: 14px; padding-top: 18px; min-width: 0; flex: 1 1 640px; }
 .title-row { display: flex; align-items: center; gap: 36px; flex-wrap: wrap; }
-.month-badge { position: relative; width: 150px; height: 84px; display: flex; flex-direction: column; padding-top: 6px; flex: none; }
-.badge-circle { position: absolute; left: -14px; top: -6px; width: 76px; height: 76px; border-radius: 50%; background: var(--accent-light); opacity: var(--circle); }
-.badge-year { position: relative; font-size: calc(22px * var(--k)); color: var(--sub); letter-spacing: 2px; }
-.badge-month { position: relative; font-size: calc(32px * var(--k)); }
 .title-wrap { display: flex; align-items: baseline; gap: 14px; flex: 1; min-width: 280px; }
 .title-label { font-size: calc(26px * var(--k)); letter-spacing: 3px; white-space: nowrap; }
 .title-input {
@@ -149,8 +143,6 @@ body.dark {
 }
 .title-input:hover, .title-input:focus { border-bottom-color: var(--sub); }
 .title-input::placeholder { color: var(--sub); opacity: 0.6; }
-.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.dots { display: inline-flex; gap: 3px; margin-left: 2px; }
 .dot { width: 10px; height: 10px; border-radius: 50%; }
 
 .top-right { display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -161,12 +153,7 @@ body.dark {
 .avatar-lg { width: 52px; height: 52px; font-size: calc(22px * var(--k)); }
 .sync-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .month-nav { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.year-row { display: flex; align-items: center; gap: 10px; }
 .year-text { font-size: calc(26px * var(--k)); font-weight: 700; letter-spacing: 1px; min-width: 70px; text-align: center; }
-.month-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px 6px; }
-.month-btn { width: 38px; height: 38px; border-radius: 50%; border: 0; background: transparent; color: var(--sub); font-size: calc(15px * var(--k)); padding: 0; }
-.month-btn:hover { background: rgba(127, 127, 127, 0.12); }
-.month-btn.on { background: var(--month-on); color: #2F2B27; }
 .today-link { border: 0; background: none; color: var(--sub); font-size: calc(12px * var(--k)); text-decoration: underline; padding: 2px 6px; }
 
 /* ---------- 캘린더 ---------- */
@@ -245,7 +232,6 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
   background: var(--card); color: var(--card-ink); border-radius: 18px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
   padding: 26px 30px; display: flex; flex-direction: column; gap: 18px;
 }
-.modal-wide { width: 860px; }
 .modal-xl { width: 1180px; height: min(860px, calc(100vh - 48px)); }
 .modal-sm { width: 400px; padding: 24px; overflow-y: auto; overscroll-behavior: contain; } /* 내용이 길면(기기 목록 등) 창 안에서 스크롤 */
 .device-more { align-self: flex-start; }
@@ -293,7 +279,6 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 .tabs { display: flex; background: var(--soft); border-radius: 12px; padding: 4px; gap: 4px; }
 .tab { min-height: 40px; padding: 0 20px; border-radius: 9px; border: 0; background: transparent; color: var(--card-ink); font-size: calc(15px * var(--k)); }
 .tab.on { background: var(--card); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
-.theme-hint { flex: 1; text-align: center; }
 .pick-grid { display: grid; gap: 14px; align-content: start; }
 .cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -351,13 +336,12 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 @media (max-width: 560px) {
   .cols-3, .cols-4 { grid-template-columns: minmax(0, 1fr); }
   .title-row { gap: 12px; }
-  .month-btn { width: 34px; height: 34px; }
 }
 .login-tabs { width: 100%; }
 .login-tabs .tab { flex: 1; }
 
 /* ---------- A4 저장 · 인쇄 ---------- */
-.modal-export { width: 900px; }
+
 .export-img { width: 100%; height: auto; border: 1px solid var(--mline); border-radius: 8px; display: block; background: #FFFFFF; }
 .export-wait { min-height: 240px; display: flex; align-items: center; justify-content: center; text-align: center; }
 
@@ -371,9 +355,6 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
   -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
 .ps-header { display: flex; align-items: center; gap: 28px; flex: none; }
-.ps-badge { position: relative; width: 110px; height: 56px; display: flex; flex-direction: column; justify-content: center; flex: none; }
-.ps-circle { position: absolute; left: -10px; top: -2px; width: 56px; height: 56px; border-radius: 50%; background: var(--accent-light); opacity: var(--circle); }
-.ps-year { position: relative; font-size: calc(15px * var(--k)); color: var(--sub); letter-spacing: 2px; }
 .ps-month { position: relative; font-size: calc(24px * var(--k)); line-height: 1.1; }
 .ps-title { flex: 1; min-width: 0; font-size: calc(22px * var(--k)); white-space: nowrap; overflow: hidden; }
 .ps-title-label { letter-spacing: 2px; margin-right: 6px; }
@@ -409,10 +390,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 }
 
 /* ---------- 새로고침 · 달 넘기기 · 테마 묶음 ---------- */
-.top-actions { display: flex; align-items: center; gap: 8px; align-self: flex-end; }
-.top-actions .account-pill { align-self: auto; }
+
 .refresh-btn { min-height: 34px; border-radius: 17px; gap: 5px; }
-.month-btn.on { color: var(--month-on-ink, #2F2B27); }
 .pick-group { margin: 6px 2px 0; font-size: calc(16px * var(--k)); font-weight: 400; }
 .pick-group small { font-size: calc(12px * var(--k)); color: var(--hint); margin-left: 6px; }
 .cal.slide-next { animation: slide-next 0.28s ease-out; }
@@ -420,7 +399,6 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 @keyframes slide-next { from { transform: translateX(40px); opacity: 0.3; } to { transform: none; opacity: 1; } }
 @keyframes slide-prev { from { transform: translateX(-40px); opacity: 0.3; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .cal.slide-next, .cal.slide-prev { animation: none; } }
-@media (max-width: 900px) { .top-actions { align-self: flex-start; } }
 
 /* ---------- 월 이름 · 환경설정 ---------- */
 .month-title { margin: 0; font-size: calc(44px * var(--k)); font-weight: 400; line-height: 1; letter-spacing: 1px; min-width: 150px; }

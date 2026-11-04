@@ -1,4 +1,4 @@
--- Exam Monthly · Supabase 설정
+-- My Month · Supabase 설정
 -- Supabase 대시보드 → SQL Editor → New query 에 이 파일 내용을 전부 붙여넣고 Run 하세요.
 
 -- 1) 사용자마다 플래너 한 줄
