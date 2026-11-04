@@ -33,7 +33,6 @@ const S = {
     modal: null, // todo | category | theme | exam | account
     draft: null,
     catSubject: null,
-    themeTab: 'style',
     returnToTodo: false,
   },
 };
@@ -198,11 +197,11 @@ function applyTheme() {
   const set = (k, v) => r.setProperty(k, v);
   set('--ink', st.ink); set('--sub', st.sub); set('--line', st.line); set('--outer', st.outer);
   set('--cell-bg', st.cellBg); set('--head-bg', st.headBg); set('--radius', st.radius + 'px');
-  set('--sun', st.sun); set('--sat', st.sat); set('--circle', st.circle);
+  set('--sun', st.sun); set('--sat', st.sat);
   set('--today-bg', st.todayBg); set('--today-badge', st.todayBadge); set('--today-fg', st.todayFg);
   if (f.custom || customFonts().length) ensureUserFonts();
   set('--font', f.family); set('--k', f.scale); set('--chip-fs', f.chip + 'px'); set('--text-nudge', (f.nudge || 0) + 'em');
-  set('--accent-light', tc(th, 0)[1]); set('--accent-deep', tc(th, 0)[2]); set('--month-on', tc(th, 3)[1]); set('--month-on-ink', inkOn(tc(th, 3)[1]));
+  set('--accent-deep', tc(th, 0)[2]);
   set('--drop', tc(th, 3)[1]);
   document.body.className = 'st-' + st.id + (st.dark ? ' dark' : '');
   const meta = document.querySelector('meta[name="theme-color"]');
@@ -915,7 +914,7 @@ function viewPrintSheet() {
   // 글씨만 버전: 형광펜(색 배경) 없이 흑백으로
   const mono = S.ui.exportMode === 'mono';
   const st = mono
-    ? { id: 'simple', ink: '#1F1F1F', sub: '#666666', line: '#B5B5B5', outer: '1px solid #8A8A8A', cellBg: '#FFFFFF', headBg: '#F4F4F4', radius: 0, sun: '#1F1F1F', sat: '#1F1F1F', circle: 0 }
+    ? { id: 'simple', ink: '#1F1F1F', sub: '#666666', line: '#B5B5B5', outer: '1px solid #8A8A8A', cellBg: '#FFFFFF', headBg: '#F4F4F4', radius: 0, sun: '#1F1F1F', sat: '#1F1F1F' }
     : isNight() ? STYLES.find((x) => x.id === 'simple') : curStyle();
   const exams = S.data.exams.slice().sort((a, b) => (a.date < b.date ? -1 : 1));
   const nearest = (k) => exams.find((e) => e.date >= k) || null;
@@ -972,7 +971,7 @@ function viewPrintSheet() {
     const c = colorOf(s.id);
     return `<span class="ps-lg"><i style="background:${c[1]}"></i><i style="background:${c[2]}"></i>${esc(s.name)}</span>`;
   }).join('');
-  const vars = `--font:${curFont().family};--ink:${st.ink};--sub:${st.sub};--line:${st.line};--outer:${st.outer};--cell-bg:${st.cellBg};--head-bg:${st.headBg};--radius:${st.radius}px;--accent-light:${curTheme().c[0][1]};--circle:${st.circle}`;
+  const vars = `--font:${curFont().family};--ink:${st.ink};--sub:${st.sub};--line:${st.line};--outer:${st.outer};--cell-bg:${st.cellBg};--head-bg:${st.headBg};--radius:${st.radius}px`;
 
   return `<div class="print-sheet st-${st.id}" style="width:${SHEET_W}px;height:${SHEET_H}px;padding:${PAD}px;${vars}">
     <div class="ps-header" style="height:${HEAD}px">
@@ -1750,9 +1749,6 @@ const actions = {
   'sel-date': (el) => { S.ui.selDate = el.dataset.date; render(); },
   'prev-month': () => shiftMonth(-1),
   'next-month': () => shiftMonth(1),
-  'prev-year': () => { S.ui.year -= 1; render(); },
-  'next-year': () => { S.ui.year += 1; render(); },
-  'go-month': (el) => { S.ui.month = Number(el.dataset.m); render(); },
   refresh: async () => {
     // 홈 화면 앱처럼 주소창이 없을 때를 위한 새로고침: 저장된 사본 대신 최신 파일을 다시 받아옴
     const btn = document.querySelector('.refresh-btn');
